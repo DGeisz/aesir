@@ -1,4 +1,7 @@
-use crate::neuron::{ChargeCycle, FireTracker, Impulse, InternalCharge, SensoryNeuron, PlasticNeuron, Neuronic, TxNeuronic, ActuatorNeuron, SynapseType};
+use crate::neuron::{
+    ActuatorNeuron, ChargeCycle, FireTracker, Impulse, InternalCharge, Neuronic, PlasticNeuron,
+    SensoryNeuron, SynapseType, TxNeuronic,
+};
 
 /// The following two tests are for Internal Charge
 #[test]
@@ -55,10 +58,12 @@ fn test_get_and_reset_charge() {
         176
     );
 
-    compare_f32(internal_charge.get_charge_weighted_average(ChargeCycle::Odd), 0.175);
+    compare_f32(
+        internal_charge.get_charge_weighted_average(ChargeCycle::Odd),
+        0.175,
+    );
 
     compare_f32(internal_charge.get_weights(ChargeCycle::Odd), 29.);
-
 
     let weight = 15.;
     let measure = 0.2;
@@ -71,7 +76,10 @@ fn test_get_and_reset_charge() {
     let measure = 0.5;
     internal_charge.incr_next_charge(ChargeCycle::Odd, Impulse::new(weight, measure));
 
-    compare_f32(internal_charge.get_charge_weighted_average(ChargeCycle::Even), 0.258);
+    compare_f32(
+        internal_charge.get_charge_weighted_average(ChargeCycle::Even),
+        0.258,
+    );
 
     compare_f32(internal_charge.get_weights(ChargeCycle::Even), 39.);
 
@@ -131,15 +139,15 @@ fn test_sensor_plastic_fire() {
     let bins = 8;
 
     // Create sensors
-    let sensor1 = SensoryNeuron::new(weight_modifier);
-    let sensor2 = SensoryNeuron::new(weight_modifier);
+    let s1 = SensoryNeuron::new(weight_modifier);
+    let s2 = SensoryNeuron::new(weight_modifier);
 
     // Set sensors
-    let sensor1_measure = 0.8;
-    let sensor2_measure = 0.4;
+    let s1_measure = 0.8;
+    let s2_measure = 0.4;
 
-    sensor1.set_measure(sensor1_measure);
-    sensor2.set_measure(sensor2_measure);
+    s1.set_measure(s1_measure);
+    s2.set_measure(s2_measure);
 
     // Create plastic
     let fire_threshold = 10.;
@@ -147,26 +155,50 @@ fn test_sensor_plastic_fire() {
     let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
 
     // Make synapses
-    let sensor1_synapse_weight = 6.;
-    let sensor2_synapse_weight = 5.;
+    let s1_synapse_weight = 6.;
+    let s2_synapse_weight = 5.;
 
-    sensor1.add_plastic_synapse(sensor1_synapse_weight, SynapseType::Excitatory, &plastic);
-    sensor2.add_plastic_synapse(sensor2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
+    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
 
-    sensor1.run_cycle(cycle);
-    sensor2.run_cycle(cycle);
+    s1.run_cycle(cycle);
+    s2.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
     // Check odd internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Odd), 0.618);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Odd), 11.);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Odd),
+        0.618,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Odd),
+        11.,
+    );
 
     // Check even internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Even), 0.0);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Even), 0.0);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Even),
+        0.0,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Even),
+        0.0,
+    );
 }
 
 #[test]
@@ -174,17 +206,17 @@ fn test_sensor_plastic_fire_with_inhibition() {
     let bins = 8;
 
     // Create sensors
-    let sensor1 = SensoryNeuron::new(weight_modifier);
-    let sensor2 = SensoryNeuron::new(weight_modifier);
+    let s1 = SensoryNeuron::new(weight_modifier);
+    let s2 = SensoryNeuron::new(weight_modifier);
     let s3 = SensoryNeuron::new(weight_modifier);
 
     // Set sensors
-    let sensor1_measure = 0.8;
-    let sensor2_measure = 0.4;
+    let s1_measure = 0.8;
+    let s2_measure = 0.4;
     let s3_measure = 0.45;
 
-    sensor1.set_measure(sensor1_measure);
-    sensor2.set_measure(sensor2_measure);
+    s1.set_measure(s1_measure);
+    s2.set_measure(s2_measure);
     s3.set_measure(s3_measure);
 
     // Create plastic
@@ -193,47 +225,75 @@ fn test_sensor_plastic_fire_with_inhibition() {
     let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
 
     // Make synapses
-    let sensor1_synapse_weight = 9.;
-    let sensor2_synapse_weight = 5.;
-    let s3_weight = 3.;
+    let s1_synapse_weight = 9.;
+    let s2_synapse_weight = 5.;
+    let s3_synapse_weight = 3.;
 
-    sensor1.add_plastic_synapse(sensor1_synapse_weight, SynapseType::Excitatory, &plastic);
-    sensor2.add_plastic_synapse(sensor2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_plastic_synapse(s3_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
+    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s3.add_plastic_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
 
-    sensor1.run_cycle(cycle);
-    sensor2.run_cycle(cycle);
+    s1.run_cycle(cycle);
+    s2.run_cycle(cycle);
+    s3.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
+    let weighted_measure = (s1_measure * s1_synapse_weight) + (s2_measure * s2_synapse_weight) - (s3_measure * s3_synapse_weight);
+
+    let measure = weighted_measure / (s1_synapse_weight + s2_synapse_weight - s3_synapse_weight);
+
     // Check odd internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Odd), 0.713);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Odd), 11.);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Odd),
+       measure
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Odd),
+        11.,
+    );
 
     // Check even internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Even), 0.0);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Even), 0.0);
-
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Even),
+        0.0,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Even),
+        0.0,
+    );
 
     //Do it all again, but this time the inhibitory synapse blocks everything
     //I'm not going to write the equivalent of this test for plastic synapses,
-    //just please for the love of God, don't fuck up.  Just implement fire_synapses
+    //just please for the love of God, don't fuck up.  Just implement update_synapses
     //for inhibitory neurons in the same way
 
     // Create sensors
-    let sensor1 = SensoryNeuron::new(weight_modifier);
-    let sensor2 = SensoryNeuron::new(weight_modifier);
+    let s1 = SensoryNeuron::new(weight_modifier);
+    let s2 = SensoryNeuron::new(weight_modifier);
     let s3 = SensoryNeuron::new(weight_modifier);
 
     // Set sensors
-    let sensor1_measure = 0.8;
-    let sensor2_measure = 0.4;
+    let s1_measure = 0.8;
+    let s2_measure = 0.4;
     let s3_measure = 0.45;
 
-    sensor1.set_measure(sensor1_measure);
-    sensor2.set_measure(sensor2_measure);
+    s1.set_measure(s1_measure);
+    s2.set_measure(s2_measure);
     s3.set_measure(s3_measure);
 
     // Create plastic
@@ -242,28 +302,53 @@ fn test_sensor_plastic_fire_with_inhibition() {
     let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
 
     // Make synapses
-    let sensor1_synapse_weight = 11.;
-    let sensor2_synapse_weight = 5.;
-    let s3_weight = 7.;
+    let s1_synapse_weight = 11.;
+    let s2_synapse_weight = 5.;
+    let s3_synapse_weight = 7.;
 
-    sensor1.add_plastic_synapse(sensor1_synapse_weight, SynapseType::Excitatory, &plastic);
-    sensor2.add_plastic_synapse(sensor2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_plastic_synapse(s3_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
+    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s3.add_plastic_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
 
-    sensor1.run_cycle(cycle);
-    sensor2.run_cycle(cycle);
+    s1.run_cycle(cycle);
+    s2.run_cycle(cycle);
+    s3.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
     // Check odd internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Odd), 0.8);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Odd), 11.);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Odd),
+        0.8,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Odd),
+        11.,
+    );
 
     // Check even internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Even), 0.0);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Even), 0.0);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Even),
+        0.0,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Even),
+        0.0,
+    );
 }
 
 #[test]
@@ -271,15 +356,15 @@ fn test_sensor_static_fire() {
     let bins = 8;
 
     // Create sensors
-    let sensor1 = SensoryNeuron::new(weight_modifier);
-    let sensor2 = SensoryNeuron::new(weight_modifier);
+    let s1 = SensoryNeuron::new(weight_modifier);
+    let s2 = SensoryNeuron::new(weight_modifier);
 
     // Set sensors
-    let sensor1_measure = 0.8;
-    let sensor2_measure = 0.4;
+    let s1_measure = 0.8;
+    let s2_measure = 0.4;
 
-    sensor1.set_measure(sensor1_measure);
-    sensor2.set_measure(sensor2_measure);
+    s1.set_measure(s1_measure);
+    s2.set_measure(s2_measure);
 
     // Create plastic
     let fire_threshold = 10.;
@@ -287,26 +372,50 @@ fn test_sensor_static_fire() {
     let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
 
     // Make synapses
-    let sensor1_synapse_weight = 6.;
-    let sensor2_synapse_weight = 5.;
+    let s1_synapse_weight = 6.;
+    let s2_synapse_weight = 5.;
 
-    sensor1.add_static_synapse(sensor1_synapse_weight, SynapseType::Excitatory, &plastic);
-    sensor2.add_static_synapse(sensor2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
+    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
 
-    sensor1.run_cycle(cycle);
-    sensor2.run_cycle(cycle);
+    s1.run_cycle(cycle);
+    s2.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
     // Check odd internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Odd), 0.618);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Odd), 11.);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Odd),
+        0.618,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Odd),
+        11.,
+    );
 
     // Check even internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Even), 0.0);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Even), 0.0);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Even),
+        0.0,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Even),
+        0.0,
+    );
 }
 
 #[test]
@@ -314,17 +423,17 @@ fn test_sensor_static_fire_with_inhibition() {
     let bins = 8;
 
     // Create sensors
-    let sensor1 = SensoryNeuron::new(weight_modifier);
-    let sensor2 = SensoryNeuron::new(weight_modifier);
+    let s1 = SensoryNeuron::new(weight_modifier);
+    let s2 = SensoryNeuron::new(weight_modifier);
     let s3 = SensoryNeuron::new(weight_modifier);
 
     // Set sensors
-    let sensor1_measure = 0.8;
-    let sensor2_measure = 0.4;
+    let s1_measure = 0.8;
+    let s2_measure = 0.4;
     let s3_measure = 0.45;
 
-    sensor1.set_measure(sensor1_measure);
-    sensor2.set_measure(sensor2_measure);
+    s1.set_measure(s1_measure);
+    s2.set_measure(s2_measure);
     s3.set_measure(s3_measure);
 
     // Create plastic
@@ -333,46 +442,71 @@ fn test_sensor_static_fire_with_inhibition() {
     let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
 
     // Make synapses
-    let sensor1_synapse_weight = 9.;
-    let sensor2_synapse_weight = 5.;
-    let s3_weight = 3.;
+    let s1_synapse_weight = 9.;
+    let s2_synapse_weight = 5.;
+    let s3_synapse_weight = 3.;
 
-    sensor1.add_static_synapse(sensor1_synapse_weight, SynapseType::Excitatory, &plastic);
-    sensor2.add_static_synapse(sensor2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_static_synapse(s3_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
+    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s3.add_static_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
 
-    sensor1.run_cycle(cycle);
-    sensor2.run_cycle(cycle);
+    s1.run_cycle(cycle);
+    s2.run_cycle(cycle);
+    s3.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
     // Check odd internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Odd), 0.713);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Odd), 11.);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Odd),
+        0.713,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Odd),
+        11.,
+    );
 
     // Check even internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Even), 0.0);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Even), 0.0);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Even),
+        0.0,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Even),
+        0.0,
+    );
 
     //Do it all again, but this time the inhibitory synapse blocks everything
     //I'm not going to write the equivalent of this test for plastic synapses,
-    //just please for the love of God, don't fuck up.  Just implement fire_synapses
+    //just please for the love of God, don't fuck up.  Just implement update_synapses
     //for inhibitory neurons in the same way
 
     // Create sensors
-    let sensor1 = SensoryNeuron::new(weight_modifier);
-    let sensor2 = SensoryNeuron::new(weight_modifier);
+    let s1 = SensoryNeuron::new(weight_modifier);
+    let s2 = SensoryNeuron::new(weight_modifier);
     let s3 = SensoryNeuron::new(weight_modifier);
 
     // Set sensors
-    let sensor1_measure = 0.8;
-    let sensor2_measure = 0.4;
+    let s1_measure = 0.8;
+    let s2_measure = 0.4;
     let s3_measure = 0.45;
 
-    sensor1.set_measure(sensor1_measure);
-    sensor2.set_measure(sensor2_measure);
+    s1.set_measure(s1_measure);
+    s2.set_measure(s2_measure);
     s3.set_measure(s3_measure);
 
     // Create plastic
@@ -381,28 +515,53 @@ fn test_sensor_static_fire_with_inhibition() {
     let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
 
     // Make synapses
-    let sensor1_synapse_weight = 11.;
-    let sensor2_synapse_weight = 5.;
-    let s3_weight = 7.;
+    let s1_synapse_weight = 11.;
+    let s2_synapse_weight = 5.;
+    let s3_synapse_weight = 7.;
 
-    sensor1.add_static_synapse(sensor1_synapse_weight, SynapseType::Excitatory, &plastic);
-    sensor2.add_static_synapse(sensor2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_static_synapse(s3_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
+    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s3.add_static_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
 
-    sensor1.run_cycle(cycle);
-    sensor2.run_cycle(cycle);
+    s1.run_cycle(cycle);
+    s2.run_cycle(cycle);
+    s3.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
     // Check odd internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Odd), 0.8);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Odd), 11.);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Odd),
+        0.8,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Odd),
+        11.,
+    );
 
     // Check even internal charge
-    compare_f32(plastic.internal_charge.borrow().get_charge_weighted_average(ChargeCycle::Even), 0.0);
-    compare_f32(plastic.internal_charge.borrow().get_weights(ChargeCycle::Even), 0.0);
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_charge_weighted_average(ChargeCycle::Even),
+        0.0,
+    );
+    compare_f32(
+        plastic
+            .internal_charge
+            .borrow()
+            .get_weights(ChargeCycle::Even),
+        0.0,
+    );
 }
 
 #[test]
@@ -490,6 +649,7 @@ fn test_plastic_plastic_fire_to_actuator_with_inhibition() {
 
     neurons.push(&p1);
     neurons.push(&p2);
+    neurons.push(&p3);
 
     // Make sp synapses
     s1.add_plastic_synapse(7., SynapseType::Excitatory, &p1);
@@ -614,6 +774,7 @@ fn test_plastic_static_fire_to_actuator_with_inhibition() {
 
     neurons.push(&p1);
     neurons.push(&p2);
+    neurons.push(&p3);
 
     // Make sp synapses
     s1.add_static_synapse(7., SynapseType::Excitatory, &p1);
@@ -746,7 +907,6 @@ fn test_plastic_weight_change() {
     let s2_p1_weight = 6.;
     let s2_p2_weight = 6.5;
 
-
     // Make sp synapses
     s1.add_plastic_synapse(s1_p1_weight, SynapseType::Excitatory, &p1);
     s1.add_plastic_synapse(s1_p2_weight, SynapseType::Excitatory, &p2);
@@ -787,10 +947,13 @@ fn test_plastic_weight_change() {
         neuron.run_cycle(cycle);
     }
 
-    let p1_charge = ((s1_measure * s1_p1_weight) + (s2_measure * s2_p1_weight)) / (s1_p1_weight + s2_p1_weight);
-    let p2_charge = ((s1_measure * s1_p2_weight) + (s2_measure * s2_p2_weight)) / (s1_p2_weight + s2_p2_weight);
+    let p1_charge =
+        ((s1_measure * s1_p1_weight) + (s2_measure * s2_p1_weight)) / (s1_p1_weight + s2_p1_weight);
+    let p2_charge =
+        ((s1_measure * s1_p2_weight) + (s2_measure * s2_p2_weight)) / (s1_p2_weight + s2_p2_weight);
 
-    let act_charge = ((p1_act_weight * p1_charge) + (p2_act_weight * p2_charge)) / (p1_act_weight + p2_act_weight);
+    let act_charge = ((p1_act_weight * p1_charge) + (p2_act_weight * p2_charge))
+        / (p1_act_weight + p2_act_weight);
 
     let p1_new_weight = p1_act_weight + weight_modifier(act_charge, p1_charge);
     let p2_new_weight = p2_act_weight + weight_modifier(act_charge, p2_charge);

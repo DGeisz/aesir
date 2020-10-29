@@ -1,11 +1,123 @@
-use std::cell::RefCell;
+use std::borrow::BorrowMut;
+use std::cell::{RefCell, RefMut, Ref};
 use std::collections::HashMap;
 
 /// For better documentation of everything, see the eywa library
 /// Most of the names here are equivalent
 
+pub trait Neuronic {
+    fn run_cycle(&self, cycle: ChargeCycle);
+}
+
+pub trait TxNeuronic<'a> {
+    fn update_synapses(
+        &self,
+        cycle: ChargeCycle,
+        fire: bool,
+        measure: f32,
+        prev_prev_fire_receipt: FireReceipt,
+    ) {
+        //If neither of the following are true, then nothing occurs in the loop, and we're just burning cycles
+        if fire || prev_prev_fire_receipt.fired {
+            // First do plastic synapses
+            for synapse in self.get_plastic_synapses().borrow_mut().iter_mut() {
+                // Fire synapse if it's supposed to be fired
+                if fire {
+                    synapse.target.intake_synaptic_impulse(
+                        cycle,
+                        Impulse::new(synapse.weight, measure),
+                        synapse.synapse_type,
+                    );
+                }
+
+                let target_receipt = synapse.target.get_fire_receipt(cycle);
+
+                // Modify weight if the receipts indicate a back to back firing occurred
+                if target_receipt.fired && prev_prev_fire_receipt.fired {
+                    let new_weight = synapse.weight
+                        + (self.get_weight_modifier())(
+                            target_receipt.measure,
+                            prev_prev_fire_receipt.measure,
+                        );
+
+                    synapse.weight = if new_weight > 0.0 { new_weight } else { 0.0 };
+                }
+            }
+
+            // Then static synapses
+            for synapse in self.get_static_synapses().borrow_mut().iter_mut() {
+                // Fire synapse if it's supposed to be fired
+                if fire {
+                    synapse.target.intake_synaptic_impulse(
+                        cycle,
+                        Impulse::new(synapse.weight, measure),
+                        synapse.synapse_type,
+                    );
+                }
+
+                let target_receipt = synapse.target.get_fire_receipt(cycle);
+
+                // Modify weight if the receipts indicate a back to back firing occurred
+                if target_receipt.fired && prev_prev_fire_receipt.fired {
+                    let new_weight = synapse.weight
+                        + (self.get_weight_modifier())(
+                            target_receipt.measure,
+                            prev_prev_fire_receipt.measure,
+                        );
+
+                    synapse.weight = if new_weight > 0.0 { new_weight } else { 0.0 };
+                }
+            }
+        }
+    }
+
+    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse<'a>>>;
+    fn get_static_synapses(&self) -> RefMut<Vec<Synapse<'a>>>;
+    fn get_weight_modifier(&self) -> fn(target_measure: f32, synapse_measure: f32) -> f32;
+
+    fn add_plastic_synapse(
+        &self,
+        weight: f32,
+        synapse_type: SynapseType,
+        target: &'a dyn RxNeuronic,
+    );
+
+    fn add_static_synapse(
+        &self,
+        weight: f32,
+        synapse_type: SynapseType,
+        target: &'a dyn RxNeuronic,
+    );
+}
+
+pub trait RxNeuronic {
+    fn intake_synaptic_impulse(
+        &self,
+        cycle: ChargeCycle,
+        impulse: Impulse,
+        synapse_type: SynapseType,
+    ) {
+        match synapse_type {
+            SynapseType::Excitatory => self
+                .get_internal_charge_mut()
+                .incr_next_charge(cycle, impulse),
+            SynapseType::Inhibitory => self
+                .get_internal_charge_mut()
+                .inhibit_next_charge(cycle, impulse),
+        }
+    }
+
+    fn get_fire_receipt(&self, cycle: ChargeCycle) -> FireReceipt {
+        self.get_fire_tracker().check_receipt(cycle.next_cycle())
+    }
+
+    fn get_fire_tracker(&self) -> Ref<FireTracker>;
+
+    fn get_internal_charge_mut(&self) -> RefMut<InternalCharge>;
+}
+
 /// Here, the impulse measure is always between 0 and 1
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Impulse {
     weight: f32,
     measure: f32,
@@ -21,22 +133,6 @@ impl Impulse {
     }
 }
 
-pub trait Neuronic {
-    fn run_cycle(&self, cycle: ChargeCycle);
-}
-
-pub trait TxNeuronic {
-    fn fire_synapses(&self, cycle: ChargeCycle, current_fire_receipt: &FireReceipt, prev_prev_fire_receipt: &FireReceipt);
-    fn add_plastic_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic);
-    fn add_static_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic);
-}
-
-pub trait RxNeuronic {
-    fn intake_synaptic_impulse(&self, impulse: Impulse);
-
-    fn get_fire_receipt(&self, cycle: ChargeCycle) -> FireReceipt;
-}
-
 #[derive(Copy, Clone)]
 pub enum ChargeCycle {
     Even,
@@ -49,10 +145,6 @@ impl ChargeCycle {
             ChargeCycle::Even => ChargeCycle::Odd,
             ChargeCycle::Odd => ChargeCycle::Even,
         }
-    }
-
-    fn prev_cycle(&self) -> ChargeCycle {
-        self.next_cycle()
     }
 }
 
@@ -93,7 +185,11 @@ impl InternalCharge {
                     }
                 }
 
-                if weights == 0.0 {0.0} else {total_weighted_charge / weights}
+                if weights == 0.0 {
+                    0.0
+                } else {
+                    total_weighted_charge / weights
+                }
             }
             ChargeCycle::Odd => {
                 let mut total_weighted_charge = 0.0;
@@ -111,7 +207,11 @@ impl InternalCharge {
                     }
                 }
 
-                if weights == 0.0 {0.0} else {total_weighted_charge / weights}
+                if weights == 0.0 {
+                    0.0
+                } else {
+                    total_weighted_charge / weights
+                }
             }
         }
     }
@@ -119,11 +219,29 @@ impl InternalCharge {
     fn get_weights(&self, cycle: ChargeCycle) -> f32 {
         match cycle {
             ChargeCycle::Even => {
-                self.even_weights.values().sum::<f32>()
+                let mut weights = 0.0;
+                for i in 0..self.bins {
+                    let weight = self.even_weights.get(&i).unwrap();
+
+                    if *weight > 0.0 {
+                        weights += *weight;
+                    }
+                }
+
+                weights
             },
             ChargeCycle::Odd => {
-                self.odd_weights.values().sum::<f32>()
-            }
+                let mut weights = 0.0;
+                for i in 0..self.bins {
+                    let weight = self.odd_weights.get(&i).unwrap();
+
+                    if *weight > 0.0 {
+                        weights += *weight;
+                    }
+                }
+
+                weights
+            },
         }
     }
 
@@ -189,7 +307,7 @@ impl InternalCharge {
 }
 
 #[derive(Copy, Clone)]
-struct FireReceipt {
+pub struct FireReceipt {
     fired: bool,
     measure: f32,
 }
@@ -207,7 +325,7 @@ impl FireReceipt {
     }
 }
 
-struct FireTracker {
+pub struct FireTracker {
     receipts: (FireReceipt, FireReceipt),
 }
 
@@ -237,6 +355,7 @@ impl FireTracker {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum SynapseType {
     Excitatory,
     Inhibitory,
@@ -249,11 +368,15 @@ pub struct Synapse<'a> {
 }
 
 impl Synapse<'_> {
-    pub fn new<'a>(synapse_type: SynapseType, weight: f32, target: &'a dyn RxNeuronic) -> Synapse<'a> {
+    pub fn new<'a>(
+        synapse_type: SynapseType,
+        weight: f32,
+        target: &'a dyn RxNeuronic,
+    ) -> Synapse<'a> {
         Synapse {
             synapse_type,
             weight,
-            target
+            target,
         }
     }
 }
@@ -284,32 +407,50 @@ impl SensoryNeuron<'_> {
     }
 }
 
-
 impl Neuronic for SensoryNeuron<'_> {
     fn run_cycle(&self, cycle: ChargeCycle) {
-        unimplemented!()
+        let mut fire_tracker = self.fire_tracker.borrow_mut();
+        let measure = self.measure.borrow();
+
+        self.update_synapses(cycle, true, *measure, fire_tracker.check_receipt(cycle));
+
+        fire_tracker.create_receipt(cycle, true, *measure);
     }
 }
 
-impl TxNeuronic for SensoryNeuron<'_> {
-    fn fire_synapses(&self, cycle: ChargeCycle, current_fire_receipt: &FireReceipt, prev_prev_fire_receipt: &FireReceipt) {
-        for synapse in self.plastic_synapses.borrow_mut().iter_mut() {
-            if current_fire_receipt.fired {
-                synapse.target.intake_synaptic_impulse(Impulse::new(synapse.weight, measure));
-            }
-
-            let target_receipt = synapse.target.get_fire_receipt(cycle);
-
-            if target_receipt.fired { }
-        };
+impl<'a> TxNeuronic<'a> for SensoryNeuron<'a> {
+    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+        self.plastic_synapses.borrow_mut()
     }
 
-    fn add_plastic_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
-        self.plastic_synapses.borrow_mut().push(Synapse::new(synapse_type, weight, target));
+    fn get_static_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+        self.static_synapses.borrow_mut()
     }
 
-    fn add_static_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
-        self.static_synapses.borrow_mut().push(Synapse::new(synapse_type, weight, target));
+    fn get_weight_modifier(&self) -> fn(f32, f32) -> f32 {
+        self.weight_modifier
+    }
+
+    fn add_plastic_synapse(
+        &self,
+        weight: f32,
+        synapse_type: SynapseType,
+        target: &'a dyn RxNeuronic,
+    ) {
+        self.plastic_synapses
+            .borrow_mut()
+            .push(Synapse::new(synapse_type, weight, target));
+    }
+
+    fn add_static_synapse(
+        &self,
+        weight: f32,
+        synapse_type: SynapseType,
+        target: &'a dyn RxNeuronic,
+    ) {
+        self.static_synapses
+            .borrow_mut()
+            .push(Synapse::new(synapse_type, weight, target));
     }
 }
 
@@ -331,23 +472,36 @@ impl ActuatorNeuron {
     }
 
     pub fn read_measure(&self) -> f32 {
-        self.measure.borrow_mut().clone()
+        self.measure.borrow().clone()
     }
 }
 
 impl Neuronic for ActuatorNeuron {
     fn run_cycle(&self, cycle: ChargeCycle) {
-        unimplemented!()
+        let mut internal_charge = self.internal_charge.borrow_mut();
+        let mut fire_tracker = self.fire_tracker.borrow_mut();
+
+        let weights = internal_charge.get_weights(cycle);
+
+        if weights > self.fire_threshold {
+            let measure = internal_charge.get_charge_weighted_average(cycle);
+            *self.measure.borrow_mut() = measure;
+            fire_tracker.create_receipt(cycle, true, measure);
+        } else {
+            fire_tracker.create_receipt(cycle, false, 0.0);
+        }
+
+        internal_charge.reset_charge(cycle);
     }
 }
 
 impl RxNeuronic for ActuatorNeuron {
-    fn intake_synaptic_impulse(&self, impulse: Impulse) {
-        unimplemented!()
+    fn get_fire_tracker(&self) -> Ref<FireTracker> {
+        self.fire_tracker.borrow()
     }
 
-    fn get_fire_receipt(&self, cycle: ChargeCycle) {
-        unimplemented!()
+    fn get_internal_charge_mut(&self) -> RefMut<InternalCharge> {
+        self.internal_charge.borrow_mut()
     }
 }
 
@@ -357,7 +511,7 @@ pub struct PlasticNeuron<'a> {
     plastic_synapses: RefCell<Vec<Synapse<'a>>>,
     static_synapses: RefCell<Vec<Synapse<'a>>>,
     weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
-    fire_threshold: f32
+    fire_threshold: f32,
 }
 
 impl PlasticNeuron<'_> {
@@ -372,41 +526,76 @@ impl PlasticNeuron<'_> {
             plastic_synapses: RefCell::new(Vec::new()),
             static_synapses: RefCell::new(Vec::new()),
             weight_modifier,
-            fire_threshold
+            fire_threshold,
         }
     }
 }
 
 impl Neuronic for PlasticNeuron<'_> {
     fn run_cycle(&self, cycle: ChargeCycle) {
-        unimplemented!()
+        let mut fire_tracker = self.fire_tracker.borrow_mut();
+        let mut internal_charge = self.internal_charge.borrow_mut();
+
+        let weights = internal_charge.get_weights(cycle);
+
+        if weights > self.fire_threshold {
+            let measure = internal_charge.get_charge_weighted_average(cycle);
+            self.update_synapses(cycle, true, measure, fire_tracker.check_receipt(cycle));
+            fire_tracker.create_receipt(cycle, true, measure);
+        } else {
+            self.update_synapses(cycle, false, 0.0, fire_tracker.check_receipt(cycle));
+            fire_tracker.create_receipt(cycle, false, 0.0);
+        }
+
+        internal_charge.reset_charge(cycle);
     }
 }
 
-impl TxNeuronic for PlasticNeuron<'_> {
-    fn fire_synapses(&self, measure: f32, cycle: ChargeCycle, fire_receipt: FireReceipt) {
-        unimplemented!()
+impl<'a> TxNeuronic<'a> for PlasticNeuron<'a> {
+    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+        self.plastic_synapses.borrow_mut()
     }
 
-    fn add_plastic_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
-        unimplemented!()
+    fn get_static_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+        self.static_synapses.borrow_mut()
     }
 
-    fn add_static_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
-        unimplemented!()
+    fn get_weight_modifier(&self) -> fn(f32, f32) -> f32 {
+        self.weight_modifier
+    }
+
+    fn add_plastic_synapse(
+        &self,
+        weight: f32,
+        synapse_type: SynapseType,
+        target: &'a dyn RxNeuronic,
+    ) {
+        self.plastic_synapses
+            .borrow_mut()
+            .push(Synapse::new(synapse_type, weight, target));
+    }
+
+    fn add_static_synapse(
+        &self,
+        weight: f32,
+        synapse_type: SynapseType,
+        target: &'a dyn RxNeuronic,
+    ) {
+        self.static_synapses
+            .borrow_mut()
+            .push(Synapse::new(synapse_type, weight, target));
     }
 }
 
 impl RxNeuronic for PlasticNeuron<'_> {
-    fn intake_synaptic_impulse(&self, impulse: Impulse) {
-        unimplemented!()
+    fn get_fire_tracker(&self) -> Ref<FireTracker> {
+        self.fire_tracker.borrow()
     }
 
-    fn get_fire_receipt(&self, cycle: ChargeCycle) {
-        unimplemented!()
+    fn get_internal_charge_mut(&self) -> RefMut<InternalCharge> {
+        self.internal_charge.borrow_mut()
     }
 }
-
 
 #[cfg(test)]
 pub mod neuron_tests;
