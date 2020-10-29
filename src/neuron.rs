@@ -26,15 +26,15 @@ pub trait Neuronic {
 }
 
 pub trait TxNeuronic {
-    fn fire_synapses(&self);
-    fn add_plastic_synapse<'a>(&self, weight: f32, target: &'a dyn RxNeuronic);
-    fn add_static_synapse<'a>(&self, weight: f32, target: &'a dyn RxNeuronic);
+    fn fire_synapses(&self, cycle: ChargeCycle, current_fire_receipt: &FireReceipt, prev_prev_fire_receipt: &FireReceipt);
+    fn add_plastic_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic);
+    fn add_static_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic);
 }
 
 pub trait RxNeuronic {
     fn intake_synaptic_impulse(&self, impulse: Impulse);
 
-    fn get_fire_receipt(&self, cycle: ChargeCycle);
+    fn get_fire_receipt(&self, cycle: ChargeCycle) -> FireReceipt;
 }
 
 #[derive(Copy, Clone)]
@@ -78,10 +78,51 @@ impl InternalCharge {
     fn get_charge_weighted_average(&self, cycle: ChargeCycle) -> f32 {
         match cycle {
             ChargeCycle::Even => {
-                self.even.values().sum::<f32>() / self.even_weights.values().sum::<f32>()
+                let mut total_weighted_charge = 0.0;
+                let mut weights = 0.0;
+
+                for i in 0..self.bins {
+                    let weight = *self.even_weights.get(&i).unwrap();
+                    if weight >= 0.0 {
+                        weights += weight;
+
+                        let weighted_charge = *self.even.get(&i).unwrap();
+                        if weighted_charge >= 0.0 {
+                            total_weighted_charge += weighted_charge;
+                        }
+                    }
+                }
+
+                if weights == 0.0 {0.0} else {total_weighted_charge / weights}
             }
             ChargeCycle::Odd => {
-                self.odd.values().sum::<f32>() / self.odd_weights.values().sum::<f32>()
+                let mut total_weighted_charge = 0.0;
+                let mut weights = 0.0;
+
+                for i in 0..self.bins {
+                    let weight = *self.odd_weights.get(&i).unwrap();
+                    if weight >= 0.0 {
+                        weights += weight;
+
+                        let weighted_charge = *self.odd.get(&i).unwrap();
+                        if weighted_charge >= 0.0 {
+                            total_weighted_charge += weighted_charge;
+                        }
+                    }
+                }
+
+                if weights == 0.0 {0.0} else {total_weighted_charge / weights}
+            }
+        }
+    }
+
+    fn get_weights(&self, cycle: ChargeCycle) -> f32 {
+        match cycle {
+            ChargeCycle::Even => {
+                self.even_weights.values().sum::<f32>()
+            },
+            ChargeCycle::Odd => {
+                self.odd_weights.values().sum::<f32>()
             }
         }
     }
@@ -108,11 +149,7 @@ impl InternalCharge {
     }
 
     fn incr_next_charge(&mut self, cycle: ChargeCycle, incr_charge: Impulse) {
-        let bin = if incr_charge.measure == 1. {
-            self.bins - 1
-        } else {
-            (incr_charge.measure * (self.bins) as f32).floor() as u8
-        };
+        let bin = self.get_bin(incr_charge.measure);
 
         match cycle.next_cycle() {
             ChargeCycle::Even => {
@@ -123,6 +160,30 @@ impl InternalCharge {
                 *self.odd.get_mut(&bin).unwrap() += incr_charge.weighted_measure();
                 *self.odd_weights.get_mut(&bin).unwrap() += incr_charge.weight;
             }
+        }
+    }
+
+    /// Called when an inhibitory synapse fires
+    fn inhibit_next_charge(&mut self, cycle: ChargeCycle, inhibitory_impulse: Impulse) {
+        let bin = self.get_bin(inhibitory_impulse.measure);
+
+        match cycle.next_cycle() {
+            ChargeCycle::Even => {
+                *self.even.get_mut(&bin).unwrap() -= inhibitory_impulse.weighted_measure();
+                *self.even_weights.get_mut(&bin).unwrap() -= inhibitory_impulse.weight;
+            }
+            ChargeCycle::Odd => {
+                *self.odd.get_mut(&bin).unwrap() -= inhibitory_impulse.weighted_measure();
+                *self.odd_weights.get_mut(&bin).unwrap() -= inhibitory_impulse.weight;
+            }
+        }
+    }
+
+    fn get_bin(&self, measure: f32) -> u8 {
+        if measure == 1. {
+            self.bins - 1
+        } else {
+            (measure * (self.bins) as f32).floor() as u8
         }
     }
 }
@@ -187,6 +248,16 @@ pub struct Synapse<'a> {
     target: &'a dyn RxNeuronic,
 }
 
+impl Synapse<'_> {
+    pub fn new<'a>(synapse_type: SynapseType, weight: f32, target: &'a dyn RxNeuronic) -> Synapse<'a> {
+        Synapse {
+            synapse_type,
+            weight,
+            target
+        }
+    }
+}
+
 pub struct SensoryNeuron<'a> {
     measure: RefCell<f32>,
     plastic_synapses: RefCell<Vec<Synapse<'a>>>,
@@ -213,6 +284,7 @@ impl SensoryNeuron<'_> {
     }
 }
 
+
 impl Neuronic for SensoryNeuron<'_> {
     fn run_cycle(&self, cycle: ChargeCycle) {
         unimplemented!()
@@ -220,16 +292,24 @@ impl Neuronic for SensoryNeuron<'_> {
 }
 
 impl TxNeuronic for SensoryNeuron<'_> {
-    fn fire_synapses(&self) {
-        unimplemented!()
+    fn fire_synapses(&self, cycle: ChargeCycle, current_fire_receipt: &FireReceipt, prev_prev_fire_receipt: &FireReceipt) {
+        for synapse in self.plastic_synapses.borrow_mut().iter_mut() {
+            if current_fire_receipt.fired {
+                synapse.target.intake_synaptic_impulse(Impulse::new(synapse.weight, measure));
+            }
+
+            let target_receipt = synapse.target.get_fire_receipt(cycle);
+
+            if target_receipt.fired { }
+        };
     }
 
-    fn add_plastic_synapse<'a>(&self, weight: f32, target: &'a dyn RxNeuronic) {
-        unimplemented!()
+    fn add_plastic_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
+        self.plastic_synapses.borrow_mut().push(Synapse::new(synapse_type, weight, target));
     }
 
-    fn add_static_synapse<'a>(&self, weight: f32, target: &'a dyn RxNeuronic) {
-        unimplemented!()
+    fn add_static_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
+        self.static_synapses.borrow_mut().push(Synapse::new(synapse_type, weight, target));
     }
 }
 
@@ -241,7 +321,7 @@ pub struct ActuatorNeuron {
 }
 
 impl ActuatorNeuron {
-    pub fn new(fire_threshold: f32, charge_bins: u8) -> ActuatorNeuron {
+    pub fn new(charge_bins: u8, fire_threshold: f32) -> ActuatorNeuron {
         ActuatorNeuron {
             fire_tracker: RefCell::new(FireTracker::new()),
             internal_charge: RefCell::new(InternalCharge::new(charge_bins)),
@@ -277,19 +357,22 @@ pub struct PlasticNeuron<'a> {
     plastic_synapses: RefCell<Vec<Synapse<'a>>>,
     static_synapses: RefCell<Vec<Synapse<'a>>>,
     weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
+    fire_threshold: f32
 }
 
 impl PlasticNeuron<'_> {
     pub fn new<'a>(
         charge_bins: u8,
         weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
+        fire_threshold: f32,
     ) -> PlasticNeuron<'a> {
         PlasticNeuron {
             fire_tracker: RefCell::new(FireTracker::new()),
             internal_charge: RefCell::new(InternalCharge::new(charge_bins)),
             plastic_synapses: RefCell::new(Vec::new()),
             static_synapses: RefCell::new(Vec::new()),
-            weight_modifier
+            weight_modifier,
+            fire_threshold
         }
     }
 }
@@ -301,15 +384,15 @@ impl Neuronic for PlasticNeuron<'_> {
 }
 
 impl TxNeuronic for PlasticNeuron<'_> {
-    fn fire_synapses(&self) {
+    fn fire_synapses(&self, measure: f32, cycle: ChargeCycle, fire_receipt: FireReceipt) {
         unimplemented!()
     }
 
-    fn add_plastic_synapse<'a>(&self, weight: f32, target: &'a dyn RxNeuronic) {
+    fn add_plastic_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
         unimplemented!()
     }
 
-    fn add_static_synapse<'a>(&self, weight: f32, target: &'a dyn RxNeuronic) {
+    fn add_static_synapse<'a>(&self, weight: f32, synapse_type: SynapseType, target: &'a dyn RxNeuronic) {
         unimplemented!()
     }
 }
@@ -326,113 +409,4 @@ impl RxNeuronic for PlasticNeuron<'_> {
 
 
 #[cfg(test)]
-mod tests {
-    use crate::neuron::{ChargeCycle, FireTracker, Impulse, InternalCharge};
-
-    /// The following two tests are for Internal Charge
-    #[test]
-    fn test_incr_next_charge() {
-        let bins = 8;
-        let mut internal_charge = InternalCharge::new(bins);
-
-        let weight = 15.;
-        let measure = 0.2;
-
-        internal_charge.incr_next_charge(ChargeCycle::Even, Impulse::new(weight, measure));
-
-        assert_eq!(*internal_charge.odd_weights.get(&1).unwrap(), 15.);
-        assert_eq!(*internal_charge.odd.get(&1).unwrap(), 3.);
-
-        let weight = 14.;
-        let measure = 0.15;
-
-        internal_charge.incr_next_charge(ChargeCycle::Even, Impulse::new(weight, measure));
-
-        assert_eq!(*internal_charge.odd_weights.get(&1).unwrap(), 29.);
-        assert_eq!((*internal_charge.odd.get(&1).unwrap() * 10.) as i32, 51);
-
-        let weight = 15.;
-        let measure = 0.2;
-
-        internal_charge.incr_next_charge(ChargeCycle::Odd, Impulse::new(weight, measure));
-
-        assert_eq!(*internal_charge.even_weights.get(&1).unwrap(), 15.);
-        assert_eq!(*internal_charge.even.get(&1).unwrap(), 3.);
-
-        let weight = 14.;
-        let measure = 0.15;
-
-        internal_charge.incr_next_charge(ChargeCycle::Odd, Impulse::new(weight, measure));
-
-        assert_eq!(*internal_charge.even_weights.get(&1).unwrap(), 29.);
-        assert_eq!((*internal_charge.even.get(&1).unwrap() * 10.) as i32, 51);
-    }
-
-    #[test]
-    fn test_get_and_reset_charge() {
-        let bins = 8;
-        let mut internal_charge = InternalCharge::new(bins);
-        let weight = 15.;
-        let measure = 0.2;
-        internal_charge.incr_next_charge(ChargeCycle::Even, Impulse::new(weight, measure));
-        let weight = 14.;
-        let measure = 0.15;
-        internal_charge.incr_next_charge(ChargeCycle::Even, Impulse::new(weight, measure));
-
-        assert_eq!(
-            (internal_charge.get_charge_weighted_average(ChargeCycle::Odd) * 1000.).round() as i32,
-            176
-        );
-
-        let weight = 15.;
-        let measure = 0.2;
-        internal_charge.incr_next_charge(ChargeCycle::Odd, Impulse::new(weight, measure));
-        let weight = 14.;
-        let measure = 0.15;
-        internal_charge.incr_next_charge(ChargeCycle::Odd, Impulse::new(weight, measure));
-
-        let weight = 10.;
-        let measure = 0.5;
-        internal_charge.incr_next_charge(ChargeCycle::Odd, Impulse::new(weight, measure));
-
-        assert_eq!(
-            (internal_charge.get_charge_weighted_average(ChargeCycle::Even) * 100.).round() as i32,
-            26
-        );
-
-        internal_charge.reset_charge(ChargeCycle::Odd);
-
-        assert_eq!(*internal_charge.odd_weights.get(&1).unwrap(), 0.);
-        assert_eq!(*internal_charge.odd.get(&1).unwrap(), 0.);
-
-        internal_charge.reset_charge(ChargeCycle::Even);
-
-        assert_eq!(*internal_charge.even_weights.get(&1).unwrap(), 0.);
-        assert_eq!(*internal_charge.even.get(&1).unwrap(), 0.);
-    }
-
-    /// This tests FireTracker
-    #[test]
-    fn test_fire_tracker() {
-        let mut tracker = FireTracker::new();
-        tracker.create_receipt(ChargeCycle::Even, true, 0.3);
-
-        let even_receipt = tracker.check_receipt(ChargeCycle::Even);
-        let odd_receipt = tracker.check_receipt(ChargeCycle::Odd);
-
-        assert_eq!(even_receipt.measure, 0.3);
-        assert_eq!(even_receipt.fired, true);
-        assert_eq!(odd_receipt.measure, 0.0);
-        assert_eq!(odd_receipt.fired, false);
-
-        tracker.create_receipt(ChargeCycle::Odd, true, 0.6);
-
-        let even_receipt = tracker.check_receipt(ChargeCycle::Even);
-        let odd_receipt = tracker.check_receipt(ChargeCycle::Odd);
-
-        assert_eq!(even_receipt.measure, 0.3);
-        assert_eq!(even_receipt.fired, true);
-        assert_eq!(odd_receipt.measure, 0.6);
-        assert_eq!(odd_receipt.fired, true);
-    }
-}
+pub mod neuron_tests;
