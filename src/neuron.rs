@@ -141,7 +141,7 @@ pub enum ChargeCycle {
 }
 
 impl ChargeCycle {
-    fn next_cycle(&self) -> ChargeCycle {
+    pub(crate) fn next_cycle(&self) -> ChargeCycle {
         match self {
             ChargeCycle::Even => ChargeCycle::Odd,
             ChargeCycle::Odd => ChargeCycle::Even,
@@ -369,11 +369,7 @@ pub struct Synapse {
 }
 
 impl Synapse {
-    pub fn new(
-        synapse_type: SynapseType,
-        weight: f32,
-        target: Rc<dyn RxNeuronic>,
-    ) -> Synapse {
+    pub fn new(synapse_type: SynapseType, weight: f32, target: Rc<dyn RxNeuronic>) -> Synapse {
         Synapse {
             synapse_type,
             weight,
