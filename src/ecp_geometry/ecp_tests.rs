@@ -47,18 +47,17 @@ fn test_if_plastic_synapse_with_actuator() {
 
     let (plastic, actuators)
         = ecp_box.get_nearby_rx_neurons(&vec![0, 4, 0]);
+
     assert_eq!(plastic.len(), 20);
     assert_eq!(actuators.len(), 6);
-
 
     let (plastic, actuators)
         = ecp_box.get_nearby_rx_neurons(&vec![0, 4, 2]);
     assert_eq!(plastic.len(), 23);
     assert_eq!(actuators.len(), 3);
 
-
     let (plastic, actuators)
         = ecp_box.get_nearby_rx_neurons(&vec![4, 4, 4]);
-    assert_eq!(plastic.len(), 27);
+    assert_eq!(plastic.len(), 26);
     assert_eq!(actuators.len(), 0);
 }

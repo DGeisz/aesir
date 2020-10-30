@@ -47,3 +47,5 @@ impl<'a> ActuatorInterface<'a> {
             .set_control_value(self.actuator_neuron.read_measure());
     }
 }
+
+mod custom_interfaces;
