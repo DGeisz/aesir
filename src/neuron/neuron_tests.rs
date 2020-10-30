@@ -1,7 +1,5 @@
-use crate::neuron::{
-    ActuatorNeuron, ChargeCycle, FireTracker, Impulse, InternalCharge, Neuronic, PlasticNeuron,
-    SensoryNeuron, SynapseType, TxNeuronic,
-};
+use crate::neuron::{ActuatorNeuron, ChargeCycle, FireTracker, Impulse, InternalCharge, Neuronic, PlasticNeuron, SensoryNeuron, SynapseType, TxNeuronic, RxNeuronic};
+use std::rc::Rc;
 
 /// The following two tests are for Internal Charge
 #[test]
@@ -139,8 +137,8 @@ fn test_sensor_plastic_fire() {
     let bins = 8;
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
     // Set sensors
     let s1_measure = 0.8;
@@ -152,14 +150,14 @@ fn test_sensor_plastic_fire() {
     // Create plastic
     let fire_threshold = 10.;
 
-    let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let plastic = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
     // Make synapses
     let s1_synapse_weight = 6.;
     let s2_synapse_weight = 5.;
 
-    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
-    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
@@ -206,9 +204,9 @@ fn test_sensor_plastic_fire_with_inhibition() {
     let bins = 8;
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
-    let s3 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s3 = Rc::new(SensoryNeuron::new(weight_modifier));
 
     // Set sensors
     let s1_measure = 0.8;
@@ -222,16 +220,16 @@ fn test_sensor_plastic_fire_with_inhibition() {
     // Create plastic
     let fire_threshold = 10.;
 
-    let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let plastic = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
     // Make synapses
     let s1_synapse_weight = 9.;
     let s2_synapse_weight = 5.;
     let s3_synapse_weight = 3.;
 
-    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
-    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_plastic_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s3.add_plastic_synapse(s3_synapse_weight, SynapseType::Inhibitory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
@@ -241,7 +239,8 @@ fn test_sensor_plastic_fire_with_inhibition() {
     s3.run_cycle(cycle);
     plastic.run_cycle(cycle);
 
-    let weighted_measure = (s1_measure * s1_synapse_weight) + (s2_measure * s2_synapse_weight) - (s3_measure * s3_synapse_weight);
+    let weighted_measure = (s1_measure * s1_synapse_weight) + (s2_measure * s2_synapse_weight)
+        - (s3_measure * s3_synapse_weight);
 
     let measure = weighted_measure / (s1_synapse_weight + s2_synapse_weight - s3_synapse_weight);
 
@@ -251,7 +250,7 @@ fn test_sensor_plastic_fire_with_inhibition() {
             .internal_charge
             .borrow()
             .get_charge_weighted_average(ChargeCycle::Odd),
-       measure
+        measure,
     );
     compare_f32(
         plastic
@@ -283,9 +282,9 @@ fn test_sensor_plastic_fire_with_inhibition() {
     //for inhibitory neurons in the same way
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
-    let s3 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s3 = Rc::new(SensoryNeuron::new(weight_modifier));
 
     // Set sensors
     let s1_measure = 0.8;
@@ -299,16 +298,16 @@ fn test_sensor_plastic_fire_with_inhibition() {
     // Create plastic
     let fire_threshold = 10.;
 
-    let plastic = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let plastic = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
     // Make synapses
     let s1_synapse_weight = 11.;
     let s2_synapse_weight = 5.;
     let s3_synapse_weight = 7.;
 
-    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
-    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_plastic_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_plastic_synapse(s1_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(s2_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s3.add_plastic_synapse(s3_synapse_weight, SynapseType::Inhibitory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
@@ -375,8 +374,8 @@ fn test_sensor_static_fire() {
     let s1_synapse_weight = 6.;
     let s2_synapse_weight = 5.;
 
-    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
-    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
+    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
@@ -446,9 +445,9 @@ fn test_sensor_static_fire_with_inhibition() {
     let s2_synapse_weight = 5.;
     let s3_synapse_weight = 3.;
 
-    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
-    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_static_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s3.add_static_synapse(s3_synapse_weight, SynapseType::Inhibitory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
@@ -519,9 +518,9 @@ fn test_sensor_static_fire_with_inhibition() {
     let s2_synapse_weight = 5.;
     let s3_synapse_weight = 7.;
 
-    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, &plastic);
-    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, &plastic);
-    s3.add_static_synapse(s3_synapse_weight, SynapseType::Inhibitory, &plastic);
+    s1.add_static_synapse(s1_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s2.add_static_synapse(s2_synapse_weight, SynapseType::Excitatory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
+    s3.add_static_synapse(s3_synapse_weight, SynapseType::Inhibitory, Rc::clone(&plastic) as Rc<dyn RxNeuronic>);
 
     // Run cycles
     let cycle = ChargeCycle::Even;
@@ -569,41 +568,41 @@ fn test_plastic_plastic_fire_to_actuator() {
     let bins = 8;
     let fire_threshold = 10.;
 
-    let mut neurons = Vec::<&dyn Neuronic>::new();
+    let mut neurons = Vec::<Rc<dyn Neuronic>>::new();
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
-    neurons.push(&s1);
-    neurons.push(&s2);
+    neurons.push(Rc::clone(&s1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&s2) as Rc<dyn Neuronic>);
 
     // Set sensors
     s1.set_measure(0.3);
     s2.set_measure(0.4);
 
     // Create plastic
-    let p1 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p2 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let p1 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p2 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
-    neurons.push(&p1);
-    neurons.push(&p2);
+    neurons.push(Rc::clone(&p1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p2) as Rc<dyn Neuronic>);
 
     // Make sp synapses
-    s1.add_plastic_synapse(7., SynapseType::Excitatory, &p1);
-    s1.add_plastic_synapse(5., SynapseType::Excitatory, &p2);
+    s1.add_plastic_synapse(7., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s1.add_plastic_synapse(5., SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
 
-    s2.add_plastic_synapse(6., SynapseType::Excitatory, &p1);
-    s2.add_plastic_synapse(6.5, SynapseType::Excitatory, &p2);
+    s2.add_plastic_synapse(6., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(6.5, SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
 
     // Create actuator
-    let act = ActuatorNeuron::new(bins, fire_threshold);
+    let act = Rc::new(ActuatorNeuron::new(bins, fire_threshold));
 
-    neurons.push(&act);
+    neurons.push(Rc::clone(&act as &dyn RxNeuronic));
 
     // Make pa synapses
-    p1.add_plastic_synapse(5.5, SynapseType::Excitatory, &act);
-    p2.add_plastic_synapse(6., SynapseType::Excitatory, &act);
+    p1.add_plastic_synapse(5.5, SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
+    p2.add_plastic_synapse(6., SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
 
     // Run three cycles
     let cycle = ChargeCycle::Even;
@@ -629,46 +628,46 @@ fn test_plastic_plastic_fire_to_actuator_with_inhibition() {
     let bins = 8;
     let fire_threshold = 10.;
 
-    let mut neurons = Vec::<&dyn Neuronic>::new();
+    let mut neurons = Vec::<Rc<dyn Neuronic>>::new();
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
-    neurons.push(&s1);
-    neurons.push(&s2);
+    neurons.push(Rc::clone(&s1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&s2) as Rc<dyn Neuronic>);
 
     // Set sensors
     s1.set_measure(0.3);
     s2.set_measure(0.4);
 
     // Create plastic
-    let p1 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p2 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p3 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let p1 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p2 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p3 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
-    neurons.push(&p1);
-    neurons.push(&p2);
-    neurons.push(&p3);
+    neurons.push(Rc::clone(&p1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p2) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p3) as Rc<dyn Neuronic>);
 
     // Make sp synapses
-    s1.add_plastic_synapse(7., SynapseType::Excitatory, &p1);
-    s1.add_plastic_synapse(5., SynapseType::Excitatory, &p2);
-    s1.add_plastic_synapse(8., SynapseType::Excitatory, &p3);
+    s1.add_plastic_synapse(7., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s1.add_plastic_synapse(5., SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
+    s1.add_plastic_synapse(8., SynapseType::Excitatory, Rc::clone(&p3) as Rc<dyn RxNeuronic>);
 
-    s2.add_plastic_synapse(6., SynapseType::Excitatory, &p1);
-    s2.add_plastic_synapse(6.5, SynapseType::Excitatory, &p2);
-    s2.add_plastic_synapse(3., SynapseType::Excitatory, &p3);
+    s2.add_plastic_synapse(6., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(6.5, SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(3., SynapseType::Excitatory, Rc::clone(&p3) as Rc<dyn RxNeuronic>);
 
     // Create actuator
-    let act = ActuatorNeuron::new(bins, fire_threshold);
+    let act = Rc::new(ActuatorNeuron::new(bins, fire_threshold));
 
-    neurons.push(&act);
+    neurons.push(Rc::clone(&act as &dyn RxNeuronic));
 
     // Make pa synapses
-    p1.add_plastic_synapse(5.5, SynapseType::Excitatory, &act);
-    p2.add_plastic_synapse(8., SynapseType::Excitatory, &act);
-    p3.add_plastic_synapse(2., SynapseType::Inhibitory, &act);
+    p1.add_plastic_synapse(5.5, SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
+    p2.add_plastic_synapse(8., SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
+    p3.add_plastic_synapse(2., SynapseType::Inhibitory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
 
     // Run three cycles
     let cycle = ChargeCycle::Even;
@@ -694,41 +693,41 @@ fn test_plastic_static_fire_to_actuator() {
     let bins = 8;
     let fire_threshold = 10.;
 
-    let mut neurons = Vec::<&dyn Neuronic>::new();
+    let mut neurons = Vec::<Rc<dyn Neuronic>>::new();
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
-    neurons.push(&s1);
-    neurons.push(&s2);
+    neurons.push(Rc::clone(&s1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&s2) as Rc<dyn Neuronic>);
 
     // Set sensors
     s1.set_measure(0.3);
     s2.set_measure(0.4);
 
     // Create plastic
-    let p1 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p2 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let p1 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p2 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
-    neurons.push(&p1);
-    neurons.push(&p2);
+    neurons.push(Rc::clone(&p1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p2) as Rc<dyn Neuronic>);
 
     // Make sp synapses
-    s1.add_static_synapse(7., SynapseType::Excitatory, &p1);
-    s1.add_static_synapse(5., SynapseType::Excitatory, &p2);
+    s1.add_static_synapse(7., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s1.add_static_synapse(5., SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
 
-    s2.add_static_synapse(6., SynapseType::Excitatory, &p1);
-    s2.add_static_synapse(6.5, SynapseType::Excitatory, &p2);
+    s2.add_static_synapse(6., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s2.add_static_synapse(6.5, SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
 
     // Create actuator
-    let act = ActuatorNeuron::new(bins, fire_threshold);
+    let act = Rc::new(ActuatorNeuron::new(bins, fire_threshold));
 
-    neurons.push(&act);
+    neurons.push(Rc::clone(&act as &dyn RxNeuronic));
 
     // Make pa synapses
-    p1.add_static_synapse(5.5, SynapseType::Excitatory, &act);
-    p2.add_static_synapse(6., SynapseType::Excitatory, &act);
+    p1.add_static_synapse(5.5, SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
+    p2.add_static_synapse(6., SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
 
     // Run three cycles
     let cycle = ChargeCycle::Even;
@@ -754,46 +753,46 @@ fn test_plastic_static_fire_to_actuator_with_inhibition() {
     let bins = 8;
     let fire_threshold = 10.;
 
-    let mut neurons = Vec::<&dyn Neuronic>::new();
+    let mut neurons = Vec::<Rc<dyn Neuronic>>::new();
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
-    neurons.push(&s1);
-    neurons.push(&s2);
+    neurons.push(Rc::clone(&s1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&s2) as Rc<dyn Neuronic>);
 
     // Set sensors
     s1.set_measure(0.3);
     s2.set_measure(0.4);
 
     // Create plastic
-    let p1 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p2 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p3 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let p1 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p2 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p3 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
-    neurons.push(&p1);
-    neurons.push(&p2);
-    neurons.push(&p3);
+    neurons.push(Rc::clone(&p1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p2) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p3) as Rc<dyn Neuronic>);
 
     // Make sp synapses
-    s1.add_static_synapse(7., SynapseType::Excitatory, &p1);
-    s1.add_static_synapse(5., SynapseType::Excitatory, &p2);
-    s1.add_static_synapse(8., SynapseType::Excitatory, &p3);
+    s1.add_static_synapse(7., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s1.add_static_synapse(5., SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
+    s1.add_static_synapse(8., SynapseType::Excitatory, Rc::clone(&p3) as Rc<dyn RxNeuronic>);
 
-    s2.add_static_synapse(6., SynapseType::Excitatory, &p1);
-    s2.add_static_synapse(6.5, SynapseType::Excitatory, &p2);
-    s2.add_static_synapse(3., SynapseType::Excitatory, &p3);
+    s2.add_static_synapse(6., SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s2.add_static_synapse(6.5, SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
+    s2.add_static_synapse(3., SynapseType::Excitatory, Rc::clone(&p3) as Rc<dyn RxNeuronic>);
 
     // Create actuator
-    let act = ActuatorNeuron::new(bins, fire_threshold);
+    let act = Rc::new(ActuatorNeuron::new(bins, fire_threshold));
 
-    neurons.push(&act);
+    neurons.push(Rc::clone(&act as &dyn RxNeuronic));
 
     // Make pa synapses
-    p1.add_static_synapse(5.5, SynapseType::Excitatory, &act);
-    p2.add_static_synapse(8., SynapseType::Excitatory, &act);
-    p3.add_static_synapse(2., SynapseType::Inhibitory, &act);
+    p1.add_static_synapse(5.5, SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
+    p2.add_static_synapse(8., SynapseType::Excitatory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
+    p3.add_static_synapse(2., SynapseType::Inhibitory, Rc::clone(Rc::clone(&act) as &dyn RxNeuronic));
 
     // Run three cycles
     let cycle = ChargeCycle::Even;
@@ -819,14 +818,14 @@ fn test_basic_weight_change() {
     let bins = 8;
     let fire_threshold = 10.;
 
-    let mut neurons = Vec::<&dyn Neuronic>::new();
+    let mut neurons = Vec::<Rc<dyn Neuronic>>::new();
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
-    neurons.push(&s1);
-    neurons.push(&s2);
+    neurons.push(Rc::clone(&s1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&s2) as Rc<dyn Neuronic>);
 
     let s1_measure = 0.5;
     let s2_measure = 0.7;
@@ -836,16 +835,16 @@ fn test_basic_weight_change() {
     s2.set_measure(s2_measure);
 
     // Create plastic
-    let p1 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let p1 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
-    neurons.push(&p1);
+    neurons.push(Rc::clone(&p1) as Rc<dyn Neuronic>);
 
     let s1_weight = 7.2;
     let s2_weight = 5.8;
 
     // Make sp synapses
-    s1.add_plastic_synapse(s1_weight, SynapseType::Excitatory, &p1);
-    s2.add_plastic_synapse(s2_weight, SynapseType::Excitatory, &p1);
+    s1.add_plastic_synapse(s1_weight, SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(s2_weight, SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
 
     let cycle = ChargeCycle::Even;
     for neuron in &neurons {
@@ -878,14 +877,14 @@ fn test_plastic_weight_change() {
     let bins = 8;
     let fire_threshold = 10.;
 
-    let mut neurons = Vec::<&dyn Neuronic>::new();
+    let mut neurons = Vec::<Rc<dyn Neuronic>>::new();
 
     // Create sensors
-    let s1 = SensoryNeuron::new(weight_modifier);
-    let s2 = SensoryNeuron::new(weight_modifier);
+    let s1 = Rc::new(SensoryNeuron::new(weight_modifier));
+    let s2 = Rc::new(SensoryNeuron::new(weight_modifier));
 
-    neurons.push(&s1);
-    neurons.push(&s2);
+    neurons.push(Rc::clone(&s1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&s2) as Rc<dyn Neuronic>);
 
     let s1_measure = 0.3;
     let s2_measure = 0.4;
@@ -895,11 +894,11 @@ fn test_plastic_weight_change() {
     s2.set_measure(s2_measure);
 
     // Create plastic
-    let p1 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
-    let p2 = PlasticNeuron::new(bins, weight_modifier, fire_threshold);
+    let p1 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
+    let p2 = Rc::new(PlasticNeuron::new(bins, weight_modifier, fire_threshold));
 
-    neurons.push(&p1);
-    neurons.push(&p2);
+    neurons.push(Rc::clone(&p1) as Rc<dyn Neuronic>);
+    neurons.push(Rc::clone(&p2) as Rc<dyn Neuronic>);
 
     let s1_p1_weight = 7.;
     let s1_p2_weight = 5.;
@@ -908,23 +907,23 @@ fn test_plastic_weight_change() {
     let s2_p2_weight = 6.5;
 
     // Make sp synapses
-    s1.add_plastic_synapse(s1_p1_weight, SynapseType::Excitatory, &p1);
-    s1.add_plastic_synapse(s1_p2_weight, SynapseType::Excitatory, &p2);
+    s1.add_plastic_synapse(s1_p1_weight, SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s1.add_plastic_synapse(s1_p2_weight, SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
 
-    s2.add_plastic_synapse(s2_p1_weight, SynapseType::Excitatory, &p1);
-    s2.add_plastic_synapse(s2_p2_weight, SynapseType::Excitatory, &p2);
+    s2.add_plastic_synapse(s2_p1_weight, SynapseType::Excitatory, Rc::clone(&p1) as Rc<dyn RxNeuronic>);
+    s2.add_plastic_synapse(s2_p2_weight, SynapseType::Excitatory, Rc::clone(&p2) as Rc<dyn RxNeuronic>);
 
     // Create actuator
-    let act = ActuatorNeuron::new(bins, fire_threshold);
+    let act = Rc::new(ActuatorNeuron::new(bins, fire_threshold));
 
-    neurons.push(&act);
+    neurons.push(Rc::clone(&act) as Rc<dyn Neuronic>);
 
     let p1_act_weight = 5.5;
     let p2_act_weight = 6.;
 
     // Make pa synapses
-    p1.add_plastic_synapse(p1_act_weight, SynapseType::Excitatory, &act);
-    p2.add_plastic_synapse(p2_act_weight, SynapseType::Excitatory, &act);
+    p1.add_plastic_synapse(p1_act_weight, SynapseType::Excitatory, Rc::clone(&(Rc::clone(&act) as Rc<dyn RxNeuronic>)));
+    p2.add_plastic_synapse(p2_act_weight, SynapseType::Excitatory, Rc::clone(&act) as Rc<dyn RxNeuronic>);
 
     // Run three cycles
     let cycle = ChargeCycle::Even;

@@ -1,6 +1,7 @@
 use std::borrow::BorrowMut;
-use std::cell::{RefCell, RefMut, Ref};
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// For better documentation of everything, see the eywa library
 /// Most of the names here are equivalent
@@ -9,7 +10,7 @@ pub trait Neuronic {
     fn run_cycle(&self, cycle: ChargeCycle);
 }
 
-pub trait TxNeuronic<'a> {
+pub trait TxNeuronic {
     fn update_synapses(
         &self,
         cycle: ChargeCycle,
@@ -71,22 +72,22 @@ pub trait TxNeuronic<'a> {
         }
     }
 
-    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse<'a>>>;
-    fn get_static_synapses(&self) -> RefMut<Vec<Synapse<'a>>>;
+    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse>>;
+    fn get_static_synapses(&self) -> RefMut<Vec<Synapse>>;
     fn get_weight_modifier(&self) -> fn(target_measure: f32, synapse_measure: f32) -> f32;
 
     fn add_plastic_synapse(
         &self,
         weight: f32,
         synapse_type: SynapseType,
-        target: &'a dyn RxNeuronic,
+        target: Rc<dyn RxNeuronic>,
     );
 
     fn add_static_synapse(
         &self,
         weight: f32,
         synapse_type: SynapseType,
-        target: &'a dyn RxNeuronic,
+        target: Rc<dyn RxNeuronic>,
     );
 }
 
@@ -229,7 +230,7 @@ impl InternalCharge {
                 }
 
                 weights
-            },
+            }
             ChargeCycle::Odd => {
                 let mut weights = 0.0;
                 for i in 0..self.bins {
@@ -241,7 +242,7 @@ impl InternalCharge {
                 }
 
                 weights
-            },
+            }
         }
     }
 
@@ -361,18 +362,18 @@ pub enum SynapseType {
     Inhibitory,
 }
 
-pub struct Synapse<'a> {
+pub struct Synapse {
     synapse_type: SynapseType,
     weight: f32,
-    target: &'a dyn RxNeuronic,
+    target: Rc<dyn RxNeuronic>,
 }
 
-impl Synapse<'_> {
-    pub fn new<'a>(
+impl Synapse {
+    pub fn new(
         synapse_type: SynapseType,
         weight: f32,
-        target: &'a dyn RxNeuronic,
-    ) -> Synapse<'a> {
+        target: Rc<dyn RxNeuronic>,
+    ) -> Synapse {
         Synapse {
             synapse_type,
             weight,
@@ -381,18 +382,18 @@ impl Synapse<'_> {
     }
 }
 
-pub struct SensoryNeuron<'a> {
+pub struct SensoryNeuron {
     measure: RefCell<f32>,
-    plastic_synapses: RefCell<Vec<Synapse<'a>>>,
-    static_synapses: RefCell<Vec<Synapse<'a>>>,
+    plastic_synapses: RefCell<Vec<Synapse>>,
+    static_synapses: RefCell<Vec<Synapse>>,
     weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
     fire_tracker: RefCell<FireTracker>,
 }
 
-impl SensoryNeuron<'_> {
-    pub fn new<'a>(
+impl SensoryNeuron {
+    pub fn new(
         weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
-    ) -> SensoryNeuron<'a> {
+    ) -> SensoryNeuron {
         SensoryNeuron {
             measure: RefCell::new(0.0),
             plastic_synapses: RefCell::new(Vec::new()),
@@ -407,7 +408,7 @@ impl SensoryNeuron<'_> {
     }
 }
 
-impl Neuronic for SensoryNeuron<'_> {
+impl Neuronic for SensoryNeuron {
     fn run_cycle(&self, cycle: ChargeCycle) {
         let mut fire_tracker = self.fire_tracker.borrow_mut();
         let measure = self.measure.borrow();
@@ -418,12 +419,12 @@ impl Neuronic for SensoryNeuron<'_> {
     }
 }
 
-impl<'a> TxNeuronic<'a> for SensoryNeuron<'a> {
-    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+impl TxNeuronic for SensoryNeuron {
+    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse>> {
         self.plastic_synapses.borrow_mut()
     }
 
-    fn get_static_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+    fn get_static_synapses(&self) -> RefMut<Vec<Synapse>> {
         self.static_synapses.borrow_mut()
     }
 
@@ -435,7 +436,7 @@ impl<'a> TxNeuronic<'a> for SensoryNeuron<'a> {
         &self,
         weight: f32,
         synapse_type: SynapseType,
-        target: &'a dyn RxNeuronic,
+        target: Rc<dyn RxNeuronic>,
     ) {
         self.plastic_synapses
             .borrow_mut()
@@ -446,7 +447,7 @@ impl<'a> TxNeuronic<'a> for SensoryNeuron<'a> {
         &self,
         weight: f32,
         synapse_type: SynapseType,
-        target: &'a dyn RxNeuronic,
+        target: Rc<dyn RxNeuronic>,
     ) {
         self.static_synapses
             .borrow_mut()
@@ -505,21 +506,21 @@ impl RxNeuronic for ActuatorNeuron {
     }
 }
 
-pub struct PlasticNeuron<'a> {
+pub struct PlasticNeuron {
     fire_tracker: RefCell<FireTracker>,
     internal_charge: RefCell<InternalCharge>,
-    plastic_synapses: RefCell<Vec<Synapse<'a>>>,
-    static_synapses: RefCell<Vec<Synapse<'a>>>,
+    plastic_synapses: RefCell<Vec<Synapse>>,
+    static_synapses: RefCell<Vec<Synapse>>,
     weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
     fire_threshold: f32,
 }
 
-impl PlasticNeuron<'_> {
-    pub fn new<'a>(
+impl PlasticNeuron {
+    pub fn new(
         charge_bins: u8,
         weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
         fire_threshold: f32,
-    ) -> PlasticNeuron<'a> {
+    ) -> PlasticNeuron {
         PlasticNeuron {
             fire_tracker: RefCell::new(FireTracker::new()),
             internal_charge: RefCell::new(InternalCharge::new(charge_bins)),
@@ -531,7 +532,7 @@ impl PlasticNeuron<'_> {
     }
 }
 
-impl Neuronic for PlasticNeuron<'_> {
+impl Neuronic for PlasticNeuron {
     fn run_cycle(&self, cycle: ChargeCycle) {
         let mut fire_tracker = self.fire_tracker.borrow_mut();
         let mut internal_charge = self.internal_charge.borrow_mut();
@@ -551,12 +552,12 @@ impl Neuronic for PlasticNeuron<'_> {
     }
 }
 
-impl<'a> TxNeuronic<'a> for PlasticNeuron<'a> {
-    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+impl TxNeuronic for PlasticNeuron {
+    fn get_plastic_synapses(&self) -> RefMut<Vec<Synapse>> {
         self.plastic_synapses.borrow_mut()
     }
 
-    fn get_static_synapses(&self) -> RefMut<Vec<Synapse<'a>>> {
+    fn get_static_synapses(&self) -> RefMut<Vec<Synapse>> {
         self.static_synapses.borrow_mut()
     }
 
@@ -568,7 +569,7 @@ impl<'a> TxNeuronic<'a> for PlasticNeuron<'a> {
         &self,
         weight: f32,
         synapse_type: SynapseType,
-        target: &'a dyn RxNeuronic,
+        target: Rc<dyn RxNeuronic>,
     ) {
         self.plastic_synapses
             .borrow_mut()
@@ -579,7 +580,7 @@ impl<'a> TxNeuronic<'a> for PlasticNeuron<'a> {
         &self,
         weight: f32,
         synapse_type: SynapseType,
-        target: &'a dyn RxNeuronic,
+        target: Rc<dyn RxNeuronic>,
     ) {
         self.static_synapses
             .borrow_mut()
@@ -587,7 +588,7 @@ impl<'a> TxNeuronic<'a> for PlasticNeuron<'a> {
     }
 }
 
-impl RxNeuronic for PlasticNeuron<'_> {
+impl RxNeuronic for PlasticNeuron {
     fn get_fire_tracker(&self) -> Ref<FireTracker> {
         self.fire_tracker.borrow()
     }
