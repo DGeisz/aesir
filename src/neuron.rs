@@ -594,5 +594,15 @@ impl RxNeuronic for PlasticNeuron {
     }
 }
 
+/// A basic weight modifier
+pub fn basic_weight_modifier(target_measure: f32, weight_measure: f32) -> f32 {
+    let x = (target_measure - weight_measure).abs();
+    let denominator = 1. - (-1.5_f32).exp();
+
+    let numerator = (-15. * x).exp() - (-1.5_f32).exp();
+
+    return numerator / denominator;
+}
+
 #[cfg(test)]
 pub mod neuron_tests;

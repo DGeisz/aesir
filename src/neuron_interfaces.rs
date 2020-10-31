@@ -1,20 +1,21 @@
 use std::rc::Rc;
+use std::boxed::Box;
 
 use crate::actuator::Actuator;
 use crate::neuron::ActuatorNeuron;
 use crate::neuron::SensoryNeuron;
 use crate::sensor::Sensor;
 
-pub struct SensoryInterface<'a> {
-    sensor: &'a mut dyn Sensor,
+pub struct SensoryInterface {
+    sensor: Box<dyn Sensor>,
     pub sensory_neuron: Rc<SensoryNeuron>,
 }
 
-impl<'a> SensoryInterface<'a> {
+impl SensoryInterface {
     pub fn new(
-        sensor: &'a mut dyn Sensor,
+        sensor: Box<dyn Sensor>,
         sensory_neuron: Rc<SensoryNeuron>,
-    ) -> SensoryInterface<'a> {
+    ) -> SensoryInterface {
         SensoryInterface {
             sensor,
             sensory_neuron,
@@ -26,16 +27,16 @@ impl<'a> SensoryInterface<'a> {
     }
 }
 
-pub struct ActuatorInterface<'a> {
-    actuator: &'a dyn Actuator,
+pub struct ActuatorInterface {
+    actuator: Box<dyn Actuator>,
     pub actuator_neuron: Rc<ActuatorNeuron>,
 }
 
-impl<'a> ActuatorInterface<'a> {
+impl ActuatorInterface {
     pub fn new(
-        actuator: &'a dyn Actuator,
+        actuator: Box<dyn Actuator>,
         actuator_neuron: Rc<ActuatorNeuron>,
-    ) -> ActuatorInterface<'a> {
+    ) -> ActuatorInterface {
         ActuatorInterface {
             actuator,
             actuator_neuron,
@@ -47,5 +48,3 @@ impl<'a> ActuatorInterface<'a> {
             .set_control_value(self.actuator_neuron.read_measure());
     }
 }
-
-mod custom_interfaces;

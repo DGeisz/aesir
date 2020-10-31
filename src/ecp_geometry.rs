@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 pub trait EcpGeometry {
     fn new(num_plastic: u32, num_actuator: u32, num_sensory: u32, nearby_count: u32) -> Self
     where
@@ -265,12 +263,11 @@ impl EcpGeometry for EcpBox {
                     x += 1;
                 }
 
-                if x == nearby_index && y == nearby_index && z == nearby_index {
+                if z > nearby_index {
                     return (plastic_locs, Vec::new());
                 }
             }
         } else {
-           println!("I'm plastic");
             let half_nearby = (self.nearby_side_length as f32 / 2.0).floor() as i32;
 
             let mut x_0 = loc_x - half_nearby;
@@ -307,7 +304,7 @@ impl EcpGeometry for EcpBox {
                     }
 
                     if (self.plastic_side_length as i32 * (z_0 + z)) + (x_0 + x) + 1 <= self.num_actuator as i32  {
-                        actuators.push(vec![x_0 + x, self.plastic_side_length as i32 + 1, z + z_0]);
+                        actuators.push(vec![x_0 + x, self.plastic_side_length as i32, z + z_0]);
 
                         if x == nearby_index {
                             z += 1;

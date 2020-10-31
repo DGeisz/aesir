@@ -12,22 +12,22 @@ use crate::reflex::Reflex;
 use crate::sensor::Sensor;
 use std::rc::Rc;
 
-pub struct Encephalon<'a> {
-    ecp_geometry: &'a dyn EcpGeometry,
+pub struct Encephalon {
+    ecp_geometry: Box<dyn EcpGeometry>,
     plastic_neurons: IndexMap<Vec<i32>, Rc<PlasticNeuron>>,
     actuator_neurons: IndexMap<Vec<i32>, Rc<ActuatorNeuron>>,
     sensory_neurons: IndexMap<Vec<i32>, Rc<SensoryNeuron>>,
-    actuator_interfaces: IndexMap<String, ActuatorInterface<'a>>,
-    sensory_interfaces: IndexMap<String, SensoryInterface<'a>>,
+    actuator_interfaces: IndexMap<String, ActuatorInterface>,
+    sensory_interfaces: IndexMap<String, SensoryInterface>,
     reflexes: Vec<Reflex>,
     cycle: ChargeCycle,
 }
 
-impl<'a> Encephalon<'a> {
+impl Encephalon {
     pub fn new(
-        ecp_geometry: &'a dyn EcpGeometry,
-        mut sensors: Vec<&'a mut dyn Sensor>,
-        mut actuators: Vec<&'a mut dyn Actuator>,
+        ecp_geometry: Box<dyn EcpGeometry>,
+        mut sensors: Vec<Box<dyn Sensor>>,
+        mut actuators: Vec<Box<dyn Actuator>>,
         reflexes: Vec<Reflex>,
 
         //Neuron parameters
@@ -36,7 +36,7 @@ impl<'a> Encephalon<'a> {
         synaptic_type_ratio: f32, //Ratio of excitatory to inhibitory synapses
         fire_threshold: f32,
         synapse_weight_ranges: (f32, f32),
-    ) -> Encephalon<'a> {
+    ) -> Encephalon {
         if ecp_geometry.get_num_sensory() != sensors.len() as u32 {
             panic!(
                 "The number of sensors passed to the encephalon doesn't \
@@ -57,7 +57,7 @@ impl<'a> Encephalon<'a> {
             actuator_interfaces: IndexMap::new(),
             sensory_interfaces: IndexMap::new(),
             reflexes,
-            cycle: ChargeCycle::Even,
+            cycle: ChargeCycle::Odd,
         };
 
         //Populate plastic neurons
@@ -228,3 +228,6 @@ impl<'a> Encephalon<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod encephalon_tests;

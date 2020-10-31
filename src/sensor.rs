@@ -4,7 +4,7 @@ pub trait Sensor {
     fn get_name(&self) -> String;
 }
 
-mod custom_sensors {
+pub mod custom_sensors {
     use crate::sensor::Sensor;
 
     pub struct ConstantSensor {
