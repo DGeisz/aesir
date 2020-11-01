@@ -11,10 +11,7 @@ pub struct SensoryInterface {
 }
 
 impl SensoryInterface {
-    pub fn new(
-        sensor: Rc<dyn Sensor>,
-        sensory_neuron: Rc<SensoryNeuron>,
-    ) -> SensoryInterface {
+    pub fn new(sensor: Rc<dyn Sensor>, sensory_neuron: Rc<SensoryNeuron>) -> SensoryInterface {
         SensoryInterface {
             sensor,
             sensory_neuron,
@@ -45,5 +42,10 @@ impl ActuatorInterface {
     pub fn run_cycle(&self) {
         self.actuator
             .set_control_value(self.actuator_neuron.read_measure());
+    }
+
+    pub fn clear(&self) {
+        self.actuator
+            .set_control_value(0.0);
     }
 }

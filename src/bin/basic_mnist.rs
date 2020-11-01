@@ -6,7 +6,9 @@ fn main() {
     let (trn_size, rows, cols) = (50_000, 28, 28);
 
     // Deconstruct the returned Mnist struct.
-    let Mnist { trn_img, trn_lbl, .. } = MnistBuilder::new()
+    let Mnist {
+        trn_img, trn_lbl, ..
+    } = MnistBuilder::new()
         .label_format_digit()
         .training_set_length(trn_size)
         .validation_set_length(10_000)
@@ -29,11 +31,14 @@ fn main() {
     let start = SystemTime::now();
     // Convert the training images to f32 values scaled between 0 and 1.
     let trn_img: Matrix<f32> = trn_img.try_into().unwrap() / 255.0;
-    println!("Time to convert data: {}", start.elapsed().unwrap().as_secs_f32());
-
+    println!(
+        "Time to convert data: {}",
+        start.elapsed().unwrap().as_secs_f32()
+    );
 
     // // Get the image of the first digit and round the values to the nearest tenth.
-    let first_image = trn_img.select_rows(&row_indexes)
+    let first_image = trn_img
+        .select_rows(&row_indexes)
         .apply(&|p| (p * 10.0).round() / 10.0);
     println!("The image looks like... \n{}", first_image);
 }

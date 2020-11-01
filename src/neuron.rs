@@ -8,6 +8,8 @@ use std::rc::Rc;
 
 pub trait Neuronic {
     fn run_cycle(&self, cycle: ChargeCycle);
+
+    fn clear(&self);
 }
 
 pub trait TxNeuronic {
@@ -354,6 +356,10 @@ impl FireTracker {
             }
         }
     }
+
+    fn clear_receipts(&mut self) {
+        self.receipts = (FireReceipt::new_empty(), FireReceipt::new_empty());
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -412,6 +418,10 @@ impl Neuronic for SensoryNeuron {
         self.update_synapses(cycle, true, *measure, fire_tracker.check_receipt(cycle));
 
         fire_tracker.create_receipt(cycle, true, *measure);
+    }
+
+    fn clear(&self) {
+        self.fire_tracker.borrow_mut().clear_receipts();
     }
 }
 
@@ -490,6 +500,15 @@ impl Neuronic for ActuatorNeuron {
 
         internal_charge.reset_charge(cycle);
     }
+
+    fn clear(&self) {
+        let mut internal_charge = self.internal_charge.borrow_mut();
+
+        internal_charge.reset_charge(ChargeCycle::Even);
+        internal_charge.reset_charge(ChargeCycle::Odd);
+
+        self.fire_tracker.borrow_mut().clear_receipts();
+    }
 }
 
 impl RxNeuronic for ActuatorNeuron {
@@ -545,6 +564,15 @@ impl Neuronic for PlasticNeuron {
         }
 
         internal_charge.reset_charge(cycle);
+    }
+
+    fn clear(&self) {
+        let mut internal_charge = self.internal_charge.borrow_mut();
+
+        internal_charge.reset_charge(ChargeCycle::Even);
+        internal_charge.reset_charge(ChargeCycle::Odd);
+
+        self.fire_tracker.borrow_mut().clear_receipts();
     }
 }
 

@@ -4,20 +4,20 @@ pub trait Actuator {
 }
 
 pub mod custom_actuator {
-    use std::cell::RefCell;
     use crate::actuator::Actuator;
+    use std::cell::RefCell;
 
     /// Literally just takes and stores a value
     pub struct BasicActuator {
         name: String,
-        measure: RefCell<f32>
+        measure: RefCell<f32>,
     }
 
     impl BasicActuator {
         pub fn new(name: String) -> BasicActuator {
             BasicActuator {
                 name,
-                measure: RefCell::new(0.)
+                measure: RefCell::new(0.),
             }
         }
     }
@@ -31,5 +31,4 @@ pub mod custom_actuator {
             self.name.clone()
         }
     }
-
 }

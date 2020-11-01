@@ -33,9 +33,10 @@ pub struct EcpBox {
 }
 
 impl EcpGeometry for EcpBox {
-    fn new(num_plastic: u32, num_actuator: u32, num_sensory: u32, nearby_count: u32) -> Self where
-        Self: Sized {
-
+    fn new(num_plastic: u32, num_actuator: u32, num_sensory: u32, nearby_count: u32) -> Self
+    where
+        Self: Sized,
+    {
         let plastic_side_length = (num_plastic as f32).powf(1. / 3.).floor() as u32;
 
         if plastic_side_length.pow(3) != num_plastic {
@@ -135,7 +136,6 @@ impl EcpGeometry for EcpBox {
             plastic_side_length,
             sensory_side_length,
             nearby_side_length,
-
             // plastic_to_actuator_connections
         }
     }
@@ -223,7 +223,7 @@ impl EcpGeometry for EcpBox {
             Some(vec![0, y, z + 1])
         } else {
             Some(vec![x + 1, y, z])
-        }
+        };
     }
 
     fn get_nearby_rx_neurons(&self, loc: &Vec<i32>) -> (Vec<Vec<i32>>, Vec<Vec<i32>>) {
@@ -237,9 +237,11 @@ impl EcpGeometry for EcpBox {
             //This is a sensor
             let scaled_plastic = self.plastic_side_length - self.nearby_side_length;
 
-            let x_0 = ((scaled_plastic as f32 / self.sensory_side_length as f32) * loc_x as f32).floor() as i32;
+            let x_0 = ((scaled_plastic as f32 / self.sensory_side_length as f32) * loc_x as f32)
+                .floor() as i32;
             let y_0 = 0;
-            let z_0 = ((scaled_plastic as f32 / self.sensory_side_length as f32) * loc_z as f32).floor() as i32;
+            let z_0 = ((scaled_plastic as f32 / self.sensory_side_length as f32) * loc_z as f32)
+                .floor() as i32;
 
             let mut x = 0;
             let mut y = 0;
@@ -299,11 +301,13 @@ impl EcpGeometry for EcpBox {
                 let mut z = 0;
 
                 loop {
-                    if  z > nearby_index {
+                    if z > nearby_index {
                         break;
                     }
 
-                    if (self.plastic_side_length as i32 * (z_0 + z)) + (x_0 + x) + 1 <= self.num_actuator as i32  {
+                    if (self.plastic_side_length as i32 * (z_0 + z)) + (x_0 + x) + 1
+                        <= self.num_actuator as i32
+                    {
                         actuators.push(vec![x_0 + x, self.plastic_side_length as i32, z + z_0]);
 
                         if x == nearby_index {
@@ -349,7 +353,7 @@ impl EcpGeometry for EcpBox {
 
                 count += 1;
 
-                if  z > nearby_index {
+                if z > nearby_index {
                     return (plastic_connections, actuators);
                 }
             }

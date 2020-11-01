@@ -227,6 +227,24 @@ impl Encephalon {
             actuator_neuron.run_cycle(self.cycle);
         }
     }
+
+    pub fn clear_neurons(&self) {
+        for actuator_interface in self.actuator_interfaces.values() {
+            actuator_interface.clear();
+        }
+
+        for sensory_neuron in self.sensory_neurons.values() {
+            sensory_neuron.clear();
+        }
+
+        for plastic_neuron in self.plastic_neurons.values() {
+            plastic_neuron.clear();
+        }
+
+        for actuator_neuron in self.actuator_neurons.values() {
+            actuator_neuron.clear();
+        }
+    }
 }
 
 #[cfg(test)]
