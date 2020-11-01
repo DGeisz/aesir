@@ -14,6 +14,10 @@ path = "src/bin/benchmark.rs"
 name = "basic-mnist"
 path = "src/bin/basic_mnist.rs"
 
+[[bin]]
+name = "mnist-classifier"
+path = "src/bin/mnist_classifier.rs"
+
 
 [dependencies]
 indexmap = "1.6.0"

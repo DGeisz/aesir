@@ -7,21 +7,22 @@ pub mod custom_actuator {
     use std::cell::RefCell;
     use crate::actuator::Actuator;
 
-    pub struct ConstantActuator {
+    /// Literally just takes and stores a value
+    pub struct BasicActuator {
         name: String,
         measure: RefCell<f32>
     }
 
-    impl ConstantActuator {
-        pub fn new(name: String) -> ConstantActuator {
-            ConstantActuator {
+    impl BasicActuator {
+        pub fn new(name: String) -> BasicActuator {
+            BasicActuator {
                 name,
                 measure: RefCell::new(0.)
             }
         }
     }
 
-    impl Actuator for ConstantActuator {
+    impl Actuator for BasicActuator {
         fn set_control_value(&self, value: f32) {
             *self.measure.borrow_mut() = value;
         }
@@ -30,4 +31,5 @@ pub mod custom_actuator {
             self.name.clone()
         }
     }
+
 }

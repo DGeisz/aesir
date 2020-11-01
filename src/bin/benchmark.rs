@@ -4,7 +4,7 @@ use std::rc::Rc;
 use aesir::sensor::Sensor;
 use aesir::sensor::custom_sensors::ConstantSensor;
 use aesir::actuator::Actuator;
-use aesir::actuator::custom_actuator::ConstantActuator;
+use aesir::actuator::custom_actuator::BasicActuator;
 use aesir::reflex::Reflex;
 use aesir::neuron::{SynapseType, basic_weight_modifier};
 use aesir::ecp_geometry::{EcpBox, EcpGeometry};
@@ -25,7 +25,7 @@ fn main() {
     let mut actuators: Vec<Rc<dyn Actuator>> = Vec::new();
 
     for name in &actuator_names {
-        actuators.push(Rc::new(ConstantActuator::new((*name).into())));
+        actuators.push(Rc::new(BasicActuator::new((*name).into())));
     }
 
     let reflexes = vec![
