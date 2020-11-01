@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use std::boxed::Box;
 
 use crate::actuator::Actuator;
 use crate::neuron::ActuatorNeuron;
@@ -7,13 +6,13 @@ use crate::neuron::SensoryNeuron;
 use crate::sensor::Sensor;
 
 pub struct SensoryInterface {
-    sensor: Box<dyn Sensor>,
+    sensor: Rc<dyn Sensor>,
     pub sensory_neuron: Rc<SensoryNeuron>,
 }
 
 impl SensoryInterface {
     pub fn new(
-        sensor: Box<dyn Sensor>,
+        sensor: Rc<dyn Sensor>,
         sensory_neuron: Rc<SensoryNeuron>,
     ) -> SensoryInterface {
         SensoryInterface {
@@ -28,13 +27,13 @@ impl SensoryInterface {
 }
 
 pub struct ActuatorInterface {
-    actuator: Box<dyn Actuator>,
+    actuator: Rc<dyn Actuator>,
     pub actuator_neuron: Rc<ActuatorNeuron>,
 }
 
 impl ActuatorInterface {
     pub fn new(
-        actuator: Box<dyn Actuator>,
+        actuator: Rc<dyn Actuator>,
         actuator_neuron: Rc<ActuatorNeuron>,
     ) -> ActuatorInterface {
         ActuatorInterface {

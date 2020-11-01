@@ -26,8 +26,8 @@ pub struct Encephalon {
 impl Encephalon {
     pub fn new(
         ecp_geometry: Box<dyn EcpGeometry>,
-        mut sensors: Vec<Box<dyn Sensor>>,
-        mut actuators: Vec<Box<dyn Actuator>>,
+        mut sensors: Vec<Rc<dyn Sensor>>,
+        mut actuators: Vec<Rc<dyn Actuator>>,
         reflexes: Vec<Reflex>,
 
         //Neuron parameters
