@@ -45,7 +45,6 @@ impl ActuatorInterface {
     }
 
     pub fn clear(&self) {
-        self.actuator
-            .set_control_value(0.0);
+        self.actuator.set_control_value(0.0);
     }
 }

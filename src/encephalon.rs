@@ -19,7 +19,6 @@ pub struct Encephalon {
     sensory_neurons: IndexMap<Vec<i32>, Rc<SensoryNeuron>>,
     actuator_interfaces: IndexMap<String, ActuatorInterface>,
     sensory_interfaces: IndexMap<String, SensoryInterface>,
-    reflexes: Vec<Reflex>,
     cycle: ChargeCycle,
 }
 
@@ -56,7 +55,6 @@ impl Encephalon {
             sensory_neurons: IndexMap::new(),
             actuator_interfaces: IndexMap::new(),
             sensory_interfaces: IndexMap::new(),
-            reflexes,
             cycle: ChargeCycle::Odd,
         };
 
@@ -184,24 +182,22 @@ impl Encephalon {
         }
 
         //Make reflexes
-        for reflex in encephalon.reflexes.iter() {
-            let sensory_interface = encephalon
-                .sensory_interfaces
-                .get(&reflex.sensor_name)
-                .unwrap();
-            let actuator_interface = encephalon
-                .actuator_interfaces
-                .get(&reflex.actuator_name)
-                .unwrap();
-
-            sensory_interface.sensory_neuron.add_static_synapse(
-                reflex.weight,
-                reflex.synapse_type,
-                Rc::clone(&actuator_interface.actuator_neuron) as Rc<dyn RxNeuronic>,
-            );
+        for reflex in reflexes.iter() {
+            encephalon.add_reflex(reflex);
         }
 
         encephalon
+    }
+
+    fn add_reflex(&mut self, reflex: &Reflex) {
+        let sensory_interface = self.sensory_interfaces.get(&reflex.sensor_name).unwrap();
+        let actuator_interface = self.actuator_interfaces.get(&reflex.actuator_name).unwrap();
+
+        sensory_interface.sensory_neuron.add_static_synapse(
+            reflex.weight,
+            reflex.synapse_type,
+            Rc::clone(&actuator_interface.actuator_neuron) as Rc<dyn RxNeuronic>,
+        );
     }
 
     pub fn run_cycle(&mut self) {
@@ -243,6 +239,33 @@ impl Encephalon {
 
         for actuator_neuron in self.actuator_neurons.values() {
             actuator_neuron.clear();
+        }
+    }
+
+    pub fn add_reflex_sensor(
+        &mut self,
+        sensor: Rc<dyn Sensor>,
+        sensor_id: i32, //This must be unique to this sensor
+        reflexes: Vec<Reflex>,
+        weight_modifier: fn(target_measure: f32, synapse_measure: f32) -> f32,
+    ) {
+        let sensory_neuron = Rc::new(SensoryNeuron::new(weight_modifier));
+        let sensor_label = vec![sensor_id];
+
+        if self.sensory_neurons.contains_key(&sensor_label) {
+            panic!("Sensor with this {:?} id already exists", sensor_label);
+        }
+
+        self.sensory_neurons
+            .insert(sensor_label, Rc::clone(&sensory_neuron));
+
+        self.sensory_interfaces.insert(
+            sensor.get_name(),
+            SensoryInterface::new(sensor, Rc::clone(&sensory_neuron)),
+        );
+
+        for reflex in &reflexes {
+            self.add_reflex(reflex);
         }
     }
 }

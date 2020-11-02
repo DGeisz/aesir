@@ -1,4 +1,6 @@
-use crate::actuator::custom_actuator::ConstantActuator;
+use std::rc::Rc;
+
+use crate::actuator::custom_actuator::BasicActuator;
 use crate::actuator::Actuator;
 use crate::ecp_geometry::{EcpBox, EcpGeometry};
 use crate::encephalon::Encephalon;
@@ -21,18 +23,18 @@ fn weight_modifier(target_measure: f32, weight_measure: f32) -> f32 {
 fn basic_encephalon_test() {
     let sensor_names = ["1", "2", "3", "4"];
 
-    let mut sensors: Vec<Box<dyn Sensor>> = Vec::new();
+    let mut sensors: Vec<Rc<dyn Sensor>> = Vec::new();
 
     for name in &sensor_names {
-        sensors.push(Box::new(ConstantSensor::new((*name).into(), 0.5)));
+        sensors.push(Rc::new(ConstantSensor::new((*name).into(), 0.5)));
     }
 
     let actuator_names = ["act1", "act2", "act3"];
 
-    let mut actuators: Vec<Box<dyn Actuator>> = Vec::new();
+    let mut actuators: Vec<Rc<dyn Actuator>> = Vec::new();
 
     for name in &actuator_names {
-        actuators.push(Box::new(ConstantActuator::new((*name).into())));
+        actuators.push(Rc::new(BasicActuator::new((*name).into())));
     }
 
     let reflexes = vec![
