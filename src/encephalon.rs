@@ -125,13 +125,16 @@ impl Encephalon {
             || rand::thread_rng().gen_range(synapse_weight_ranges.0, synapse_weight_ranges.1);
 
         let gen_synapse_type = || {
+
+            // SynapseType::Excitatory //For time being, all are excitatory
+
             let type_threshold = synaptic_type_ratio / (synaptic_type_ratio + 1.);
             let val = rand::thread_rng().gen_range(0.0, 1.0);
 
             if val > type_threshold {
-                SynapseType::Excitatory
-            } else {
                 SynapseType::Inhibitory
+            } else {
+                SynapseType::Excitatory
             }
         };
 
@@ -224,7 +227,31 @@ impl Encephalon {
         }
     }
 
-    pub fn clear_neurons(&self) {
+    pub fn run_static_cycle(&mut self) {
+        self.cycle = self.cycle.next_cycle();
+
+        for sensory_interface in self.sensory_interfaces.values() {
+            sensory_interface.run_cycle();
+        }
+
+        for actuator_interface in self.actuator_interfaces.values() {
+            actuator_interface.run_cycle();
+        }
+
+        for sensory_neuron in self.sensory_neurons.values() {
+            sensory_neuron.run_static_cycle(self.cycle);
+        }
+
+        for plastic_neuron in self.plastic_neurons.values() {
+            plastic_neuron.run_static_cycle(self.cycle);
+        }
+
+        for actuator_neuron in self.actuator_neurons.values() {
+            actuator_neuron.run_static_cycle(self.cycle);
+        }
+    }
+
+    pub fn clear(&self) {
         for actuator_interface in self.actuator_interfaces.values() {
             actuator_interface.clear();
         }

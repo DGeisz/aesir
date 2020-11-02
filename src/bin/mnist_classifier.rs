@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use aesir::actuator::custom_actuator::BasicActuator;
 use aesir::actuator::Actuator;
 use aesir::ecp_geometry::{EcpBox, EcpGeometry};
@@ -8,18 +10,19 @@ use aesir::sensor::custom_sensors::BasicSensor;
 use aesir::sensor::Sensor;
 use mnist::{Mnist, MnistBuilder};
 use std::rc::Rc;
+use std::time::SystemTime;
 
-const MNIST_SIDE_LENGTH: u32 = 28;
-const MNIST_AREA: u32 = MNIST_SIDE_LENGTH * MNIST_SIDE_LENGTH;
+const MNIST_SIDE_LENGTH: usize = 28;
+const MNIST_AREA: usize = MNIST_SIDE_LENGTH * MNIST_SIDE_LENGTH;
 
-const SYNAPTIC_TYPE_RATIO: f32 = 2.;
-const SYNAPTIC_WEIGHT_RANGE: (f32, f32) = (2., 5.);
+const SYNAPTIC_TYPE_RATIO: f32 = 8.;
+const SYNAPTIC_WEIGHT_RANGE: (f32, f32) = (2., 3.);
 const FIRE_THRESHOLD: f32 = 10.;
 
 const NEARBY_COUNT: u32 = 26;
 const NUM_PLASTIC: u32 = 216;
 
-const REFLEX_SENSOR_WEIGHT: f32 = 20.;
+const REFLEX_SENSOR_WEIGHT: f32 = 40.;
 
 fn main() {
     // Load mnist
@@ -34,7 +37,7 @@ fn main() {
         .test_set_length(10_000)
         .finalize();
 
-    let img_start_index = |img_index: u32| MNIST_SIDE_LENGTH * MNIST_SIDE_LENGTH * img_index;
+    let img_start_index = |img_index: usize| MNIST_SIDE_LENGTH * MNIST_SIDE_LENGTH * img_index;
 
     // Create actuators
     let actuator_names = (0..10)
@@ -87,7 +90,7 @@ fn main() {
     }
 
     // Create ecp geometry
-    let ecp_g = Box::new(EcpBox::new(NUM_PLASTIC, 10, MNIST_AREA, NEARBY_COUNT));
+    let ecp_g = Box::new(EcpBox::new(NUM_PLASTIC, 10, MNIST_AREA.try_into().unwrap(), NEARBY_COUNT));
 
     // Create Encephalon
     let mut ecp = Encephalon::new(
@@ -107,7 +110,6 @@ fn main() {
         let mut reflexes: Vec<Reflex> = Vec::new();
 
         for i in 0..10 {
-
             let synapse_type = if i == sensor_index {
                 SynapseType::Excitatory
             } else {
@@ -130,18 +132,104 @@ fn main() {
         );
     }
 
-    let load_mnist_img = |img_index: u32| {
-        let img_index = img_start_index(img_index);
+    let load_mnist_img = |img_index: usize| {
+        let img_start_index = img_start_index(img_index);
 
-        for sensor_index in 0..MNIST_SIDE_LENGTH {
+        for sensor_index in 0..MNIST_AREA {
             mnist_sensors
                 .get(sensor_index as usize)
                 .unwrap()
                 .set_measure(
-                    *trn_img.get((img_index + sensor_index) as usize).unwrap() as f32 / 255.,
+                    *trn_img.get((img_start_index + sensor_index) as usize).unwrap() as f32 / 255.,
                 );
         }
-
-        
     };
+
+    let load_correct_val = |img_index: usize| {
+        let label = trn_lbl[img_index];
+
+        for i in 1..10 {
+            let measure = if i == label { 0.8 } else { 0. };
+            reflex_sensors.get(i as usize).unwrap().set_measure(measure);
+        }
+    };
+
+    let mut begin_num_correct = 0.;
+
+    let start = SystemTime::now();
+    for i in 0..10000 {
+        ecp.clear();
+
+        load_mnist_img(i);
+        load_correct_val(i);
+
+        let mut label_totals = [0.; 10];
+        for _ in 0..50 {
+            ecp.run_cycle();
+
+            for i in 0..10 {
+                label_totals[i] += actuators.get(i).unwrap().get_control_value();
+            }
+        }
+
+        let mut max_index = 0;
+        let mut max_value = label_totals[0];
+
+        // println!("{}", trn_lbl.get(i).unwrap());
+        for j in 1..10 {
+            // println!("label {}", label_totals[j]);
+            if label_totals[j] > max_value {
+                max_index = j;
+                max_value = label_totals[j];
+            }
+        }
+
+        if max_index as u8 == *trn_lbl.get(i).unwrap() {
+            begin_num_correct += 1.;
+        }
+
+        if i % 100 == 0 {
+            println!("Finished img: {}, after {}", i + 1, start.elapsed().unwrap().as_secs_f32());
+        }
+    }
+
+    println!("Training accuracy: {}", begin_num_correct / 100.);
+
+    for i in 1..10 {
+        reflex_sensors.get(i as usize).unwrap().set_measure(0.0);
+    }
+
+    let mut num_correct = 0.0;
+    for i in 0..10000 {
+        ecp.clear();
+
+        load_mnist_img(i);
+
+        let mut label_totals = [0.; 10];
+        for _ in 0..50 {
+            ecp.run_static_cycle();
+
+            for i in 0..10 {
+                label_totals[i] += actuators.get(i).unwrap().get_control_value();
+            }
+        }
+
+        let mut max_index = 0;
+        let mut max_value = label_totals[0];
+
+        // println!("{}", trn_lbl.get(i).unwrap());
+        for j in 1..10 {
+            // println!("label {}", label_totals[j]);
+            if label_totals[j] > max_value {
+                max_index = j;
+                max_value = label_totals[j];
+            }
+        }
+
+        if max_index as u8 == *trn_lbl.get(i).unwrap() {
+            num_correct += 1.;
+        }
+    }
+
+    println!("\n\n Accuracy: {}", num_correct / 100.);
 }

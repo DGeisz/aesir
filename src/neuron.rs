@@ -9,6 +9,9 @@ use std::rc::Rc;
 pub trait Neuronic {
     fn run_cycle(&self, cycle: ChargeCycle);
 
+
+    fn run_static_cycle(&self, cycle: ChargeCycle);
+
     fn clear(&self);
 }
 
@@ -100,6 +103,7 @@ pub trait RxNeuronic {
         impulse: Impulse,
         synapse_type: SynapseType,
     ) {
+        // println!("Yoge {} {}", impulse.measure, impulse.weight);
         match synapse_type {
             SynapseType::Excitatory => self
                 .get_internal_charge_mut()
@@ -301,11 +305,13 @@ impl InternalCharge {
     }
 
     fn get_bin(&self, measure: f32) -> u8 {
-        if measure == 1. {
-            self.bins - 1
-        } else {
-            (measure * (self.bins) as f32).floor() as u8
-        }
+        let mut bin = (measure * (self.bins) as f32).floor() as u8;
+
+        if bin >= self.bins {
+            bin = self.bins - 1;
+        };
+
+        bin
     }
 }
 
@@ -420,6 +426,15 @@ impl Neuronic for SensoryNeuron {
         fire_tracker.create_receipt(cycle, true, *measure);
     }
 
+    fn run_static_cycle(&self, cycle: ChargeCycle) {
+        let mut fire_tracker = self.fire_tracker.borrow_mut();
+        let measure = self.measure.borrow();
+
+        self.update_synapses(cycle, true, *measure, FireReceipt::new_empty());
+
+        fire_tracker.create_receipt(cycle, true, *measure);
+    }
+
     fn clear(&self) {
         self.fire_tracker.borrow_mut().clear_receipts();
     }
@@ -501,6 +516,10 @@ impl Neuronic for ActuatorNeuron {
         internal_charge.reset_charge(cycle);
     }
 
+    fn run_static_cycle(&self, cycle: ChargeCycle) {
+        self.run_cycle(cycle);
+    }
+
     fn clear(&self) {
         let mut internal_charge = self.internal_charge.borrow_mut();
 
@@ -560,6 +579,24 @@ impl Neuronic for PlasticNeuron {
             fire_tracker.create_receipt(cycle, true, measure);
         } else {
             self.update_synapses(cycle, false, 0.0, fire_tracker.check_receipt(cycle));
+            fire_tracker.create_receipt(cycle, false, 0.0);
+        }
+
+        internal_charge.reset_charge(cycle);
+    }
+
+    fn run_static_cycle(&self, cycle: ChargeCycle) {
+        let mut fire_tracker = self.fire_tracker.borrow_mut();
+        let mut internal_charge = self.internal_charge.borrow_mut();
+
+        let weights = internal_charge.get_weights(cycle);
+
+        if weights > self.fire_threshold {
+            let measure = internal_charge.get_charge_weighted_average(cycle);
+            self.update_synapses(cycle, true, measure, FireReceipt::new_empty());
+            fire_tracker.create_receipt(cycle, true, measure);
+        } else {
+            self.update_synapses(cycle, false, 0.0, FireReceipt::new_empty());
             fire_tracker.create_receipt(cycle, false, 0.0);
         }
 
